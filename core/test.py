@@ -20,12 +20,10 @@ from datetime import datetime as dt
 from tensorboardX import SummaryWriter
 from time import time
 
-from models.encoder import Encoder
-from models.decoder import Decoder
-from models.merger import Merger
+from models.recnet import RecNet
 
 def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
-        test_writer=None, encoder=None, decoder=None, merger=None):
+        test_writer=None, depnet=None, recnet=None):
     # Enable the inbuilt cudnn auto-tuner to find the best algorithm to use
     torch.backends.cudnn.benchmark = True
 
@@ -49,32 +47,23 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
 
         dataset_loader = utils.data_loaders.DATASET_LOADER_MAPPING[cfg.DATASET.DATASET_NAME](cfg)
         test_data_loader = torch.utils.data.DataLoader(
-            dataset=dataset_loader.get_dataset(utils.data_loaders.DatasetType.TEST, cfg.CONST.N_VIEWS,
-                                               cfg.CONST.N_VIEWS_RENDERING, test_transforms),
+            dataset=dataset_loader.get_dataset(utils.data_loaders.DatasetType.TEST, cfg.CONST.N_VIEWS, test_transforms),
             batch_size=1,
             num_workers=1,
             pin_memory=True,
             shuffle=False)
 
     # Set up networks
-    if decoder is None or encoder is None:
-        encoder = Encoder(cfg)
-        decoder = Decoder(cfg)
-        merger = Merger(cfg)
+    if recnet is None:
+        recnet = RecNet(cfg)
 
         if torch.cuda.is_available():
-            encoder = torch.nn.DataParallel(encoder).cuda()
-            decoder = torch.nn.DataParallel(decoder).cuda()
-            merger = torch.nn.DataParallel(merger).cuda()
+            recnet = torch.nn.DataParallel(recnet).cuda()
 
         print('[INFO] %s Loading weights from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
         checkpoint = torch.load(cfg.CONST.WEIGHTS)
         epoch_idx = checkpoint['epoch_idx']
-        encoder.load_state_dict(checkpoint['encoder_state_dict'])
-        decoder.load_state_dict(checkpoint['decoder_state_dict'])
-
-        if cfg.NETWORK.USE_MERGER:
-            merger.load_state_dict(checkpoint['merger_state_dict'])
+        recnet.load_state_dict(checkpoint['recnet_state_dict'])
 
     # Set up loss functions
     bce_loss = torch.nn.BCELoss()
@@ -82,41 +71,45 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     # Testing loop
     n_samples = len(test_data_loader)
     test_iou = dict()
-    encoder_losses = utils.network_utils.AverageMeter()
+    recnet_losses = utils.network_utils.AverageMeter()
 
     # Switch models to evaluation mode
-    encoder.eval()
-    decoder.eval()
-    merger.eval()
+    recnet.eval()
 
-    for sample_idx, (taxonomy_id, sample_name, rendering_images, ground_truth_voxel) in enumerate(test_data_loader):
+    for sample_idx, (taxonomy_id, sample_name, left_rgb_image, right_rgb_image, left_depth_image, right_depth_image,
+                     ground_truth_volume) in enumerate(test_data_loader):
         taxonomy_id = taxonomy_id[0] if isinstance(taxonomy_id[0], str) else taxonomy_id[0].item()
         sample_name = sample_name[0]
 
         with torch.no_grad():
             # Get data from data loader
-            rendering_images = utils.network_utils.var_or_cuda(rendering_images)
-            ground_truth_voxel = utils.network_utils.var_or_cuda(ground_truth_voxel)
+            left_rgb_image = utils.network_utils.var_or_cuda(left_rgb_image)
+            right_rgb_image = utils.network_utils.var_or_cuda(right_rgb_image)
+            left_depth_image = utils.network_utils.var_or_cuda(left_depth_image)
+            right_depth_image = utils.network_utils.var_or_cuda(right_depth_image)
+            ground_truth_volume = utils.network_utils.var_or_cuda(ground_truth_volume)
 
-            # Test the encoder, decoder, and merger
-            image_features = encoder(rendering_images)
-            raw_features, generated_voxel = decoder(image_features)
+            # Train the DepNet and RecNet
+            # TODO: Use a DepNet to estimate depth
+            left_depth_estimated = left_depth_image
+            right_depth_estimated = right_depth_image
+            left_rgbd_image = torch.cat((left_rgb_image, left_depth_estimated), dim=1)
+            right_rgbd_image = torch.cat((right_rgb_image, right_depth_estimated), dim=1)
 
-            if cfg.NETWORK.USE_MERGER and epoch_idx >= cfg.TRAIN.EPOCH_START_USE_MERGER:
-                generated_voxel = merger(raw_features, generated_voxel)
-            else:
-                generated_voxel = torch.mean(generated_voxel, dim=1)
-            encoder_loss = bce_loss(generated_voxel, ground_truth_voxel) * 10
+            left_generated_volume = recnet(left_rgbd_image)
+            right_generated_volume = recnet(right_rgbd_image)
+            # TODO: Use a better method to fuse two Stereo volumes
+            generated_volume = torch.cat((left_generated_volume, right_generated_volume), dim=1)
+            generated_volume = torch.mean(generated_volume, dim=1)
 
-            # Append loss and accuracy to average metrics
-            encoder_losses.update(encoder_loss.item())
+            recnet_loss = bce_loss(generated_volume, ground_truth_volume) * 10
 
             # IoU per sample
             sample_iou = []
             for th in cfg.TEST.VOXEL_THRESH:
-                _voxel = torch.ge(generated_voxel, th).float()
-                intersection = torch.sum(_voxel.mul(ground_truth_voxel)).float()
-                union = torch.sum(torch.ge(_voxel.add(ground_truth_voxel), 1)).float()
+                _volume = torch.ge(generated_volume, th).float()
+                intersection = torch.sum(_volume.mul(ground_truth_volume)).float()
+                union = torch.sum(torch.ge(_volume.add(ground_truth_volume), 1)).float()
                 sample_iou.append((intersection / union).item())
 
             # IoU per taxonomy
@@ -125,9 +118,19 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             test_iou[taxonomy_id]['n_samples'] += 1
             test_iou[taxonomy_id]['iou'].append(sample_iou)
 
+            # Append generated volumes to TensorBoard
+            if sample_idx < 3:
+                img_dir = output_dir % 'images'
+                gtv = ground_truth_volume.cpu().numpy()
+                rendering_views = utils.binvox_visualization.get_voxel_views(gtv, os.path.join(img_dir, 'test'), epoch_idx)
+                test_writer.add_image('Ground Truth Voxels', rendering_views, epoch_idx)
+                gv = generated_volume.cpu().numpy()
+                rendering_views = utils.binvox_visualization.get_voxel_views(gv, os.path.join(img_dir, 'test'), epoch_idx)
+                test_writer.add_image('Reconstructed Voxels', rendering_views, epoch_idx)
+
             # Print sample loss and IoU
-            print('[INFO] %s Test[%d/%d] Taxonomy = %s Sample = %s EDLoss = %.4f IoU = %s' % \
-                (dt.now(), sample_idx + 1, n_samples, taxonomy_id, sample_name, encoder_loss.item(), \
+            print('[INFO] %s Test[%d/%d] Taxonomy = %s Sample = %s RLoss = %.4f IoU = %s' % \
+                (dt.now(), sample_idx + 1, n_samples, taxonomy_id, sample_name, recnet_loss.item(), \
                     ['%.4f' % si for si in sample_iou]))
 
     # Output testing results
@@ -141,7 +144,6 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     print('============================ TEST RESULTS ============================')
     print('Taxonomy', end='\t')
     print('#Sample', end='\t')
-    print('Baseline', end='\t')
     for th in cfg.TEST.VOXEL_THRESH:
         print('t=%.2f' % th, end='\t')
     print()
@@ -149,16 +151,11 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     for taxonomy_id in test_iou:
         print('%s' % taxonomies[taxonomy_id]['taxonomy_name'].ljust(8), end='\t')
         print('%d' % test_iou[taxonomy_id]['n_samples'], end='\t')
-        if 'baseline' in taxonomies[taxonomy_id]:
-            print('%.4f' % taxonomies[taxonomy_id]['baseline']['%d-view' % cfg.CONST.N_VIEWS_RENDERING], end='\t\t')
-        else:
-            print('N/a', end='\t\t')
-
         for ti in test_iou[taxonomy_id]['iou']:
             print('%.4f' % ti, end='\t')
         print()
     # Print mean IoU for each threshold
-    print('Overall ', end='\t\t\t\t')
+    print('Overall ', end='\t\t')
     for mi in mean_iou:
         print('%.4f' % mi, end='\t')
     print('\n')
@@ -166,7 +163,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     # Add testing results to TensorBoard
     max_iou = np.max(mean_iou)
     if not test_writer is None:
-        test_writer.add_scalar('EncoderDecoder/EpochLoss', encoder_losses.avg, epoch_idx)
-        test_writer.add_scalar('EncoderDecoder/IoU', max_iou, epoch_idx)
+        test_writer.add_scalar('RecNet/EpochLoss', recnet_losses.avg, epoch_idx)
+        test_writer.add_scalar('RecNet/IoU', max_iou, epoch_idx)
 
     return max_iou
