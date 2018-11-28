@@ -55,7 +55,6 @@ __C.DIR.OUT_PATH                            = './output'
 #
 __C.NETWORK                                 = edict()
 __C.NETWORK.LEAKY_VALUE                     = .2
-__C.NETWORK.TCONV_USE_BIAS                  = False
 
 #
 # Training
@@ -73,9 +72,9 @@ __C.TRAIN.SATURATION                        = .25
 __C.TRAIN.HUE                               = .25
 __C.TRAIN.RANDOM_BG_COLOR_RANGE             = [[225, 255], [225, 255], [225, 255]]
 __C.TRAIN.POLICY                            = 'adam'        # available options: sgd, adam
-__C.TRAIN.DEPNET_LEARNING_RATE              = 1e-3
+__C.TRAIN.DISPNET_LEARNING_RATE             = 1e-3
 __C.TRAIN.RECNET_LEARNING_RATE              = 1e-3
-__C.TRAIN.DEPNET_LR_MILESTONES              = [150]
+__C.TRAIN.DISPNET_LR_MILESTONES             = [150]
 __C.TRAIN.RECNET_LR_MILESTONES              = [150]
 __C.TRAIN.BETAS                             = (.9, .999)
 __C.TRAIN.MOMENTUM                          = .9

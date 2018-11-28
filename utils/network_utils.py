@@ -29,7 +29,7 @@ def init_weights(m):
         torch.nn.init.constant_(m.bias, 0)
 
 
-def save_checkpoints(cfg, file_path, epoch_idx, depnet, depnet_solver, recnet, recnet_solver, best_iou, best_epoch):
+def save_checkpoints(cfg, file_path, epoch_idx, dispnet, dispnet_solver, recnet, recnet_solver, best_iou, best_epoch):
     print('[INFO] %s Saving checkpoint to %s ...' % (dt.now(), file_path))
     checkpoint = {
         'epoch_idx': epoch_idx,

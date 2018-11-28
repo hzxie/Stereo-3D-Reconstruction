@@ -19,6 +19,7 @@ from tensorboardX import SummaryWriter
 from time import time
 
 from core.test import test_net
+from models.dispnet import DispNet
 from models.recnet import RecNet
 
 
@@ -60,19 +61,30 @@ def train_net(cfg):
         shuffle=False)
 
     # Set up networks
+    dispnet = DispNet(cfg)
     recnet = RecNet(cfg)
+    print('[DEBUG] %s Parameters in DispNet: %d.' % (dt.now(), utils.network_utils.count_parameters(dispnet)))
     print('[DEBUG] %s Parameters in RecNet: %d.' % (dt.now(), utils.network_utils.count_parameters(recnet)))
 
     # Initialize weights of networks
+    dispnet.apply(utils.network_utils.init_weights)
     recnet.apply(utils.network_utils.init_weights)
 
     # Set up solver
     if cfg.TRAIN.POLICY == 'adam':
+        dispnet_solver = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, dispnet.parameters()),
+            lr=cfg.TRAIN.DISPNET_LEARNING_RATE,
+            betas=cfg.TRAIN.BETAS)
         recnet_solver = torch.optim.Adam(
             filter(lambda p: p.requires_grad, recnet.parameters()),
             lr=cfg.TRAIN.RECNET_LEARNING_RATE,
             betas=cfg.TRAIN.BETAS)
     elif cfg.TRAIN.POLICY == 'sgd':
+        dispnet_solver = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, dispnet.parameters()),
+            lr=cfg.TRAIN.DISPNET_LEARNING_RATE,
+            momentum=cfg.TRAIN.MOMENTUM)
         recnet_solver = torch.optim.SGD(
             filter(lambda p: p.requires_grad, recnet.parameters()),
             lr=cfg.TRAIN.RECNET_LEARNING_RATE,
@@ -81,14 +93,18 @@ def train_net(cfg):
         raise Exception('[FATAL] %s Unknown optimizer %s.' % (dt.now(), cfg.TRAIN.POLICY))
 
     # Set up learning rate scheduler to decay learning rates dynamically
+    dispnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        dispnet_solver, milestones=cfg.TRAIN.DISPNET_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
     recnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
         recnet_solver, milestones=cfg.TRAIN.RECNET_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
 
     if torch.cuda.is_available():
+        dispnet = torch.nn.DataParallel(dispnet).cuda()
         recnet = torch.nn.DataParallel(recnet).cuda()
 
     # Set up loss functions
     bce_loss = torch.nn.BCELoss()
+    mse_loss = torch.nn.MSELoss()
 
     # Load pretrained model if exists
     init_epoch = 0
@@ -101,6 +117,8 @@ def train_net(cfg):
         best_iou = checkpoint['best_iou']
         best_epoch = checkpoint['best_epoch']
 
+        dispnet.load_state_dict(checkpoint['dispnet_state_dict'])
+        dispnet_solver.load_state_dict(checkpoint['dispnet_solver_state_dict'])
         recnet.load_state_dict(checkpoint['recnet_state_dict'])
         recnet_solver.load_state_dict(checkpoint['recnet_solver_state_dict'])
 
@@ -122,12 +140,15 @@ def train_net(cfg):
         # Batch average meterics
         batch_time = utils.network_utils.AverageMeter()
         data_time = utils.network_utils.AverageMeter()
-        recnet_losses = utils.network_utils.AverageMeter()
+        disparity_losses = utils.network_utils.AverageMeter()
+        voxel_losses = utils.network_utils.AverageMeter()
 
         # Adjust learning rate
+        dispnet_lr_scheduler.step()
         recnet_lr_scheduler.step()
 
         # switch models to training mode
+        dispnet.train()
         recnet.train()
 
         batch_end_time = time()
@@ -149,11 +170,8 @@ def train_net(cfg):
             right_depth_images = utils.network_utils.var_or_cuda(right_depth_images)
             ground_truth_volumes = utils.network_utils.var_or_cuda(ground_truth_volumes)
 
-            # Train the DepNet and RecNet
-            # TODO: Use a DepNet to estimate depth
-            left_depth_estimated = left_depth_images
-            right_depth_estimated = right_depth_images
-
+            # Train the DispNet and RecNet
+            left_depth_estimated, right_depth_estimated = dispnet(left_rgb_images, right_rgb_images)
             left_rgbd_images = torch.cat((left_rgb_images, left_depth_estimated), dim=1)
             right_rgbd_images = torch.cat((right_rgb_images, right_depth_estimated), dim=1)
 
@@ -163,36 +181,45 @@ def train_net(cfg):
             generated_volumes = torch.cat((left_generated_volumes, right_generated_volumes), dim=1)
             generated_volumes = torch.mean(generated_volumes, dim=1)
 
-            recnet_loss = bce_loss(generated_volumes, ground_truth_volumes) * 10
+            # Calculate losses for depth estimation and voxel reconstruction
+            disparity_loss = mse_loss(left_depth_estimated, left_depth_images) + \
+                             mse_loss(right_depth_estimated, right_depth_images)
+            voxel_loss = bce_loss(generated_volumes, ground_truth_volumes)
 
             # Gradient decent
+            dispnet.zero_grad()
             recnet.zero_grad()
-            recnet_loss.backward()
+            disparity_loss.backward(retain_graph=True)
+            voxel_loss.backward()
+            dispnet_solver.step()
             recnet_solver.step()
 
             # Append loss to average metrics
-            recnet_losses.update(recnet_loss.item())
+            disparity_losses.update(disparity_loss.item())
+            voxel_losses.update(voxel_loss.item())
             # Append loss to TensorBoard
             n_itr = epoch_idx * n_batches + batch_idx
-            train_writer.add_scalar('RecNet/BatchLoss', recnet_loss.item(), n_itr)
+            train_writer.add_scalar('DispNet/BatchLoss', disparity_loss.item(), n_itr)
+            train_writer.add_scalar('RecNet/BatchLoss', voxel_loss.item(), n_itr)
 
             # Tick / tock
             batch_time.update(time() - batch_end_time)
             batch_end_time = time()
-            print('[INFO] %s [Epoch %d/%d][Batch %d/%d] BatchTime = %.3f (s) DataTime = %.3f (s) RLoss = %.4f' % \
+            print('[INFO] %s [Epoch %d/%d][Batch %d/%d] BatchTime = %.3f (s) DataTime = %.3f (s) DLoss = %.4f VLoss = %.4f' % \
                 (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, batch_idx + 1, n_batches, \
-                    batch_time.val, data_time.val, recnet_loss.item()))
+                    batch_time.val, data_time.val, disparity_loss.item(), voxel_loss.item()))
 
         # Append epoch loss to TensorBoard
-        train_writer.add_scalar('RecNet/EpochLoss', recnet_losses.avg, epoch_idx + 1)
+        train_writer.add_scalar('DispNet/EpochLoss', disparity_losses.avg, epoch_idx + 1)
+        train_writer.add_scalar('RecNet/EpochLoss', voxel_losses.avg, epoch_idx + 1)
 
         # Tick / tock
         epoch_end_time = time()
-        print('[INFO] %s Epoch [%d/%d] EpochTime = %.3f (s) RLoss = %.4f' %
-              (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, epoch_end_time - epoch_start_time, recnet_losses.avg))
+        print('[INFO] %s Epoch [%d/%d] EpochTime = %.3f (s) DLoss = %.4f VLoss = %.4f' %
+              (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, epoch_end_time - epoch_start_time, disparity_losses.avg, voxel_losses.avg))
 
         # Validate the training models
-        iou = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, None, recnet)
+        iou = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, recnet)
 
         # Save weights to file
         if (epoch_idx + 1) % cfg.TRAIN.SAVE_FREQ == 0:
@@ -201,7 +228,7 @@ def train_net(cfg):
 
             utils.network_utils.save_checkpoints(cfg, \
                     os.path.join(ckpt_dir, 'ckpt-epoch-%04d.pth.tar' % (epoch_idx + 1)), \
-                    epoch_idx + 1, None, None, recnet, recnet_solver, \
+                    epoch_idx + 1, dispnet, dispnet_solver, recnet, recnet_solver, \
                     best_iou, best_epoch)
         if iou > best_iou:
             if not os.path.exists(ckpt_dir):
@@ -211,7 +238,7 @@ def train_net(cfg):
             best_epoch = epoch_idx + 1
             utils.network_utils.save_checkpoints(cfg, \
                     os.path.join(ckpt_dir, 'best-ckpt.pth.tar'), \
-                    epoch_idx + 1, None, None, recnet, recnet_solver, \
+                    epoch_idx + 1, dispnet, dispnet_solver, recnet, recnet_solver, \
                     best_iou, best_epoch)
 
     # Close SummaryWriter for TensorBoard

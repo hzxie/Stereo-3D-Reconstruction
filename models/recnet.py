@@ -90,77 +90,72 @@ class RecNet(torch.nn.Module):
 
         # Decoder
         self.unpool1a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=2, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1, output_padding=1),
+            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=2, bias=False, padding=1, output_padding=1),
             torch.nn.BatchNorm3d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool1b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1),
+            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=1, bias=False, padding=1),
             torch.nn.BatchNorm3d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
-        self.unpool1c = torch.nn.ConvTranspose3d(128, 128, kernel_size=1, stride=2, bias=cfg.NETWORK.TCONV_USE_BIAS, output_padding=1)
-
+        self.unpool1c = torch.nn.ConvTranspose3d(128, 128, kernel_size=1, stride=2, bias=False, output_padding=1)
 
         self.unpool2a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=2, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1, output_padding=1),
+            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=2, bias=False, padding=1, output_padding=1),
             torch.nn.BatchNorm3d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool2b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1),
+            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=1, bias=False, padding=1),
             torch.nn.BatchNorm3d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
-        self.unpool2c = torch.nn.ConvTranspose3d(128, 128, kernel_size=1, stride=2, bias=cfg.NETWORK.TCONV_USE_BIAS, output_padding=1)
-
+        self.unpool2c = torch.nn.ConvTranspose3d(128, 128, kernel_size=1, stride=2, bias=False, output_padding=1)
 
         self.unpool3a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 64, kernel_size=3, stride=2, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1, output_padding=1),
+            torch.nn.ConvTranspose3d(128, 64, kernel_size=3, stride=2, bias=False, padding=1, output_padding=1),
             torch.nn.BatchNorm3d(64),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool3b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(64, 64, kernel_size=3, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1),
+            torch.nn.ConvTranspose3d(64, 64, kernel_size=3, stride=1, bias=False, padding=1),
             torch.nn.BatchNorm3d(64),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
-        self.unpool3c = torch.nn.ConvTranspose3d(128, 64, kernel_size=1, stride=2, bias=cfg.NETWORK.TCONV_USE_BIAS, output_padding=1)
-
+        self.unpool3c = torch.nn.ConvTranspose3d(128, 64, kernel_size=1, stride=2, bias=False, output_padding=1)
 
         self.unpool4a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(64, 32, kernel_size=3, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1),
+            torch.nn.ConvTranspose3d(64, 32, kernel_size=3, stride=1, bias=False, padding=1),
             torch.nn.BatchNorm3d(32),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool4b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(32, 32, kernel_size=3, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1),
+            torch.nn.ConvTranspose3d(32, 32, kernel_size=3, stride=1, bias=False, padding=1),
             torch.nn.BatchNorm3d(32),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
-        self.unpool4c = torch.nn.ConvTranspose3d(64, 32, kernel_size=1, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS)
-
+        self.unpool4c = torch.nn.ConvTranspose3d(64, 32, kernel_size=1, stride=1, bias=False)
 
         self.unpool5a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(32, 8, kernel_size=3, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1),
+            torch.nn.ConvTranspose3d(32, 8, kernel_size=3, stride=1, bias=False, padding=1),
             torch.nn.BatchNorm3d(8),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool5b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(8, 8, kernel_size=3, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1),
+            torch.nn.ConvTranspose3d(8, 8, kernel_size=3, stride=1, bias=False, padding=1),
             torch.nn.BatchNorm3d(8),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
-        self.unpool5c = torch.nn.ConvTranspose3d(32, 8, kernel_size=1, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS)
-
+        self.unpool5c = torch.nn.ConvTranspose3d(32, 8, kernel_size=1, stride=1, bias=False)
 
         self.unpool6 = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(8, 1, kernel_size=3, stride=1, bias=cfg.NETWORK.TCONV_USE_BIAS, padding=1),
+            torch.nn.ConvTranspose3d(8, 1, kernel_size=3, stride=1, bias=False, padding=1),
             torch.nn.Sigmoid()
         )
 
     def forward(self, rgbd_images):
-        # print(rgbd_images.size())  # torch.Size([batch_size, img_c, img_h, img_w])
+        # print(rgbd_images.size())  # torch.Size([batch_size, 4, 137, 137])
         features = self.conv1a(rgbd_images.view(-1, self.cfg.CONST.IMG_C, self.cfg.CONST.IMG_H, self.cfg.CONST.IMG_W))
         # print(features.size())    # torch.Size([batch_size, 96, 137, 137])
         features = self.conv1b(features)

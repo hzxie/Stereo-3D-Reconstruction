@@ -20,10 +20,11 @@ from datetime import datetime as dt
 from tensorboardX import SummaryWriter
 from time import time
 
+from models.dispnet import DispNet
 from models.recnet import RecNet
 
 def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
-        test_writer=None, depnet=None, recnet=None):
+        test_writer=None, dispnet=None, recnet=None):
     # Enable the inbuilt cudnn auto-tuner to find the best algorithm to use
     torch.backends.cudnn.benchmark = True
 
@@ -54,15 +55,18 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             shuffle=False)
 
     # Set up networks
-    if recnet is None:
+    if dispnet is None or recnet is None:
+        dispnet = DispNet(cfg)
         recnet = RecNet(cfg)
 
         if torch.cuda.is_available():
+            dispnet = torch.nn.DataParallel(dispnet).cuda()
             recnet = torch.nn.DataParallel(recnet).cuda()
 
         print('[INFO] %s Loading weights from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
         checkpoint = torch.load(cfg.CONST.WEIGHTS)
         epoch_idx = checkpoint['epoch_idx']
+        dispnet.load_state_dict(checkpoint['dispnet_state_dict'])
         recnet.load_state_dict(checkpoint['recnet_state_dict'])
 
     # Set up loss functions
@@ -71,9 +75,11 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     # Testing loop
     n_samples = len(test_data_loader)
     test_iou = dict()
-    recnet_losses = utils.network_utils.AverageMeter()
+    disparity_losses = utils.network_utils.AverageMeter()
+    voxel_losses = utils.network_utils.AverageMeter()
 
     # Switch models to evaluation mode
+    dispnet.eval()
     recnet.eval()
 
     for sample_idx, (taxonomy_id, sample_name, left_rgb_image, right_rgb_image, left_depth_image, right_depth_image,
@@ -89,10 +95,9 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             right_depth_image = utils.network_utils.var_or_cuda(right_depth_image)
             ground_truth_volume = utils.network_utils.var_or_cuda(ground_truth_volume)
 
-            # Train the DepNet and RecNet
-            # TODO: Use a DepNet to estimate depth
-            left_depth_estimated = left_depth_image
-            right_depth_estimated = right_depth_image
+            # Train the DispNet and RecNet
+            # TODO: Use a DispNet to estimate depth
+            left_depth_estimated, right_depth_estimated = dispnet(left_rgb_image, right_rgb_image)
             left_rgbd_image = torch.cat((left_rgb_image, left_depth_estimated), dim=1)
             right_rgbd_image = torch.cat((right_rgb_image, right_depth_estimated), dim=1)
 
@@ -102,7 +107,14 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             generated_volume = torch.cat((left_generated_volume, right_generated_volume), dim=1)
             generated_volume = torch.mean(generated_volume, dim=1)
 
-            recnet_loss = bce_loss(generated_volume, ground_truth_volume) * 10
+            # Calculate losses for depth estimation and voxel reconstruction
+            disparity_loss = mse_loss(left_depth_estimated, left_depth_images) + \
+                             mse_loss(right_depth_estimated, right_depth_images)
+            voxel_loss = bce_loss(generated_volume, ground_truth_volume)
+
+            # Append loss and accuracy to average metrics
+            disparity_losses.update(disparity_loss.item())
+            voxel_losses.update(voxel_loss.item())
 
             # IoU per sample
             sample_iou = []
@@ -120,17 +132,24 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
 
             # Append generated volumes to TensorBoard
             if sample_idx < 3:
+                # Disparity Map Visualization
+                # Volume Visualization
                 img_dir = output_dir % 'images'
-                gtv = ground_truth_volume.cpu().numpy()
-                rendering_views = utils.binvox_visualization.get_voxel_views(gtv, os.path.join(img_dir, 'test'), epoch_idx)
-                test_writer.add_image('Ground Truth Voxels', rendering_views, epoch_idx)
+                test_writer.add_image('#%02d/Disparity Estimated/Left' % sample_idx, left_depth_estimated, epoch_idx)
+                test_writer.add_image('#%02d/Disparity GroundTruth/Left' % sample_idx, left_depth_image, epoch_idx)
+                test_writer.add_image('#%02d/Disparity Estimated/Right' % sample_idx, right_depth_estimated, epoch_idx)
+                test_writer.add_image('#%02d/Disparity GroundTruth/Right' % sample_idx, right_depth_image, epoch_idx)
+                
                 gv = generated_volume.cpu().numpy()
                 rendering_views = utils.binvox_visualization.get_voxel_views(gv, os.path.join(img_dir, 'test'), epoch_idx)
-                test_writer.add_image('Reconstructed Voxels', rendering_views, epoch_idx)
+                test_writer.add_image('#%02d/Volume Reconstructed' % sample_idx, rendering_views, epoch_idx)
+                gtv = ground_truth_volume.cpu().numpy()
+                rendering_views = utils.binvox_visualization.get_voxel_views(gtv, os.path.join(img_dir, 'test'), epoch_idx)
+                test_writer.add_image('#%02d/Volume GroundTruth' % sample_idx, rendering_views, epoch_idx)
 
             # Print sample loss and IoU
-            print('[INFO] %s Test[%d/%d] Taxonomy = %s Sample = %s RLoss = %.4f IoU = %s' % \
-                (dt.now(), sample_idx + 1, n_samples, taxonomy_id, sample_name, recnet_loss.item(), \
+            print('[INFO] %s Test[%d/%d] Taxonomy = %s Sample = %s DLoss = %.4f VLoss = %.4f IoU = %s' % \
+                (dt.now(), sample_idx + 1, n_samples, taxonomy_id, sample_name, disparity_loss.item(), voxel_loss.item(), \
                     ['%.4f' % si for si in sample_iou]))
 
     # Output testing results
@@ -163,7 +182,8 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     # Add testing results to TensorBoard
     max_iou = np.max(mean_iou)
     if not test_writer is None:
-        test_writer.add_scalar('RecNet/EpochLoss', recnet_losses.avg, epoch_idx)
+        test_writer.add_scalar('DispNet/EpochLoss', disparity_losses.avg, epoch_idx)
+        test_writer.add_scalar('RecNet/EpochLoss', voxel_losses.avg, epoch_idx)
         test_writer.add_scalar('RecNet/IoU', max_iou, epoch_idx)
 
     return max_iou
