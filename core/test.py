@@ -70,6 +70,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
         recnet.load_state_dict(checkpoint['recnet_state_dict'])
 
     # Set up loss functions
+    mse_loss = torch.nn.MSELoss()
     bce_loss = torch.nn.BCELoss()
 
     # Testing loop
@@ -108,8 +109,8 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             generated_volume = torch.mean(generated_volume, dim=1)
 
             # Calculate losses for depth estimation and voxel reconstruction
-            disparity_loss = mse_loss(left_depth_estimated, left_depth_images) + \
-                             mse_loss(right_depth_estimated, right_depth_images)
+            disparity_loss = mse_loss(left_depth_estimated, left_depth_image) + \
+                             mse_loss(right_depth_estimated, right_depth_image)
             voxel_loss = bce_loss(generated_volume, ground_truth_volume)
 
             # Append loss and accuracy to average metrics

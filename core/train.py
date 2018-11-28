@@ -103,8 +103,8 @@ def train_net(cfg):
         recnet = torch.nn.DataParallel(recnet).cuda()
 
     # Set up loss functions
-    bce_loss = torch.nn.BCELoss()
     mse_loss = torch.nn.MSELoss()
+    bce_loss = torch.nn.BCELoss()
 
     # Load pretrained model if exists
     init_epoch = 0
