@@ -63,10 +63,10 @@ class ShapeNetDataset(torch.utils.data.dataset.Dataset):
         left_depth_image_file_path = left_depth_images_file_path[selected_index]
         right_depth_image_file_path = right_depth_images_file_path[selected_index]
 
-        left_rgb_image = cv2.imread(left_rgb_image_file_path, cv2.IMREAD_UNCHANGED)
-        right_rgb_image = cv2.imread(right_rgb_image_file_path, cv2.IMREAD_UNCHANGED)
-        left_depth_image = cv2.imread(left_depth_image_file_path, cv2.IMREAD_UNCHANGED)
-        right_depth_image = cv2.imread(right_depth_image_file_path, cv2.IMREAD_UNCHANGED)
+        left_rgb_image = cv2.imread(left_rgb_image_file_path, cv2.IMREAD_UNCHANGED).astype(np.float32)
+        right_rgb_image = cv2.imread(right_rgb_image_file_path, cv2.IMREAD_UNCHANGED).astype(np.float32)
+        left_depth_image = cv2.imread(left_depth_image_file_path, cv2.IMREAD_UNCHANGED).astype(np.float32)
+        right_depth_image = cv2.imread(right_depth_image_file_path, cv2.IMREAD_UNCHANGED).astype(np.float32)
 
         # Get data of voxel
         volume = scipy.io.loadmat(volume_path)

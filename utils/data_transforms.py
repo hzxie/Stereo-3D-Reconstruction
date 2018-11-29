@@ -61,6 +61,8 @@ class Normalize(object):
     def __call__(self, left_rgb_image, right_rgb_image, left_depth_image, right_depth_image):
         left_rgb_image = self.normalize(left_rgb_image)
         right_rgb_image = self.normalize(right_rgb_image)
+        left_depth_image /= [255.0]
+        right_depth_image /= [255.0]
 
         return left_rgb_image, right_rgb_image, left_depth_image, right_depth_image
 
