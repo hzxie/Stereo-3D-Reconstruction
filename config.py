@@ -15,8 +15,8 @@ __C.DATASETS.SHAPENET                       = edict()
 __C.DATASETS.SHAPENET.TAXONOMY_FILE_PATH    = './datasets/ShapeNet.json'
 __C.DATASETS.SHAPENET.LEFT_RENDERING_PATH   = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/render_%02d_l.png'
 __C.DATASETS.SHAPENET.RIGHT_RENDERING_PATH  = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/render_%02d_r.png'
-__C.DATASETS.SHAPENET.LEFT_DEPTH_PATH       = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/depth_%02d_l.png'
-__C.DATASETS.SHAPENET.RIGHT_DEPTH_PATH      = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/depth_%02d_r.png'
+__C.DATASETS.SHAPENET.LEFT_DISP_PATH        = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/disp_%02d_l.exr'
+__C.DATASETS.SHAPENET.RIGHT_DISP_PATH       = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/disp_%02d_r.exr'
 __C.DATASETS.SHAPENET.VOLUME_PATH           = '/home/hzxie/Datasets/ShapeNet/ShapeNetVox32/%s/%s.mat'
 
 #
@@ -37,7 +37,7 @@ __C.CONST.IMG_W                             = 137       # Image width for input
 __C.CONST.IMG_H                             = 137       # Image height for input
 __C.CONST.IMG_C                             = 4         # Image channels for input
 __C.CONST.N_VOX                             = 32
-__C.CONST.BATCH_SIZE                        = 16
+__C.CONST.BATCH_SIZE                        = 20
 __C.CONST.N_VIEWS                           = 24
 __C.CONST.N_VIEWS_RENDERING                 = 1
 __C.CONST.CROP_IMG_W                        = 210

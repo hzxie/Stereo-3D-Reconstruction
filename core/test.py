@@ -83,7 +83,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     dispnet.eval()
     recnet.eval()
 
-    for sample_idx, (taxonomy_id, sample_name, left_rgb_image, right_rgb_image, left_depth_image, right_depth_image,
+    for sample_idx, (taxonomy_id, sample_name, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image,
                      ground_truth_volume) in enumerate(test_data_loader):
         taxonomy_id = taxonomy_id[0] if isinstance(taxonomy_id[0], str) else taxonomy_id[0].item()
         sample_name = sample_name[0]
@@ -92,15 +92,15 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             # Get data from data loader
             left_rgb_image = utils.network_utils.var_or_cuda(left_rgb_image)
             right_rgb_image = utils.network_utils.var_or_cuda(right_rgb_image)
-            left_depth_image = utils.network_utils.var_or_cuda(left_depth_image)
-            right_depth_image = utils.network_utils.var_or_cuda(right_depth_image)
+            left_disp_image = utils.network_utils.var_or_cuda(left_disp_image)
+            right_disp_image = utils.network_utils.var_or_cuda(right_disp_image)
             ground_truth_volume = utils.network_utils.var_or_cuda(ground_truth_volume)
 
             # Train the DispNet and RecNet
-            # TODO: Use a DispNet to estimate depth
-            left_depth_estimated, right_depth_estimated = dispnet(left_rgb_image, right_rgb_image)
-            left_rgbd_image = torch.cat((left_rgb_image, left_depth_estimated), dim=1)
-            right_rgbd_image = torch.cat((right_rgb_image, right_depth_estimated), dim=1)
+            # TODO: Use a DispNet to estimate disp
+            left_disp_estimated, right_disp_estimated = dispnet(left_rgb_image, right_rgb_image)
+            left_rgbd_image = torch.cat((left_rgb_image, left_disp_estimated), dim=1)
+            right_rgbd_image = torch.cat((right_rgb_image, right_disp_estimated), dim=1)
 
             left_generated_volume = recnet(left_rgbd_image)
             right_generated_volume = recnet(right_rgbd_image)
@@ -108,9 +108,9 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             generated_volume = torch.cat((left_generated_volume, right_generated_volume), dim=1)
             generated_volume = torch.mean(generated_volume, dim=1)
 
-            # Calculate losses for depth estimation and voxel reconstruction
-            disparity_loss = mse_loss(left_depth_estimated, left_depth_image) + \
-                             mse_loss(right_depth_estimated, right_depth_image)
+            # Calculate losses for disp estimation and voxel reconstruction
+            disparity_loss = mse_loss(left_disp_estimated, left_disp_image) + \
+                             mse_loss(right_disp_estimated, right_disp_image)
             voxel_loss = bce_loss(generated_volume, ground_truth_volume)
 
             # Append loss and accuracy to average metrics
@@ -136,10 +136,10 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
                 # Disparity Map Visualization
                 # Volume Visualization
                 img_dir = output_dir % 'images'
-                test_writer.add_image('#%02d/Disparity Estimated/Left' % sample_idx, left_depth_estimated, epoch_idx)
-                test_writer.add_image('#%02d/Disparity GroundTruth/Left' % sample_idx, left_depth_image, epoch_idx)
-                test_writer.add_image('#%02d/Disparity Estimated/Right' % sample_idx, right_depth_estimated, epoch_idx)
-                test_writer.add_image('#%02d/Disparity GroundTruth/Right' % sample_idx, right_depth_image, epoch_idx)
+                test_writer.add_image('#%02d/Disparity Estimated/Left' % sample_idx, left_disp_estimated, epoch_idx)
+                test_writer.add_image('#%02d/Disparity GroundTruth/Left' % sample_idx, left_disp_image, epoch_idx)
+                test_writer.add_image('#%02d/Disparity Estimated/Right' % sample_idx, right_disp_estimated, epoch_idx)
+                test_writer.add_image('#%02d/Disparity GroundTruth/Right' % sample_idx, right_disp_image, epoch_idx)
                 
                 gv = generated_volume.cpu().numpy()
                 rendering_views = utils.binvox_visualization.get_voxel_views(gv, os.path.join(img_dir, 'test'), epoch_idx)

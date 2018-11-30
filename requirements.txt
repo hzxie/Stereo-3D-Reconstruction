@@ -4,6 +4,7 @@ matplotlib
 numpy
 opencv-python
 pprint
+pyexr
 scipy
 torchvision
 tensorboardX

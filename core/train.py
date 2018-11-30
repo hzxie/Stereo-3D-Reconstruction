@@ -153,8 +153,8 @@ def train_net(cfg):
 
         batch_end_time = time()
         n_batches = len(train_data_loader)
-        for batch_idx, (taxonomy_ids, sample_names, left_rgb_images, right_rgb_images, left_depth_images,
-                        right_depth_images, ground_truth_volumes) in enumerate(train_data_loader):
+        for batch_idx, (taxonomy_ids, sample_names, left_rgb_images, right_rgb_images, left_disp_images,
+                        right_disp_images, ground_truth_volumes) in enumerate(train_data_loader):
             # Measure data time
             data_time.update(time() - batch_end_time)
 
@@ -166,14 +166,14 @@ def train_net(cfg):
             # Put it to GPU if CUDA is available
             left_rgb_images = utils.network_utils.var_or_cuda(left_rgb_images)
             right_rgb_images = utils.network_utils.var_or_cuda(right_rgb_images)
-            left_depth_images = utils.network_utils.var_or_cuda(left_depth_images)
-            right_depth_images = utils.network_utils.var_or_cuda(right_depth_images)
+            left_disp_images = utils.network_utils.var_or_cuda(left_disp_images)
+            right_disp_images = utils.network_utils.var_or_cuda(right_disp_images)
             ground_truth_volumes = utils.network_utils.var_or_cuda(ground_truth_volumes)
 
             # Train the DispNet and RecNet
-            left_depth_estimated, right_depth_estimated = dispnet(left_rgb_images, right_rgb_images)
-            left_rgbd_images = torch.cat((left_rgb_images, left_depth_estimated), dim=1)
-            right_rgbd_images = torch.cat((right_rgb_images, right_depth_estimated), dim=1)
+            left_disp_estimated, right_disp_estimated = dispnet(left_rgb_images, right_rgb_images)
+            left_rgbd_images = torch.cat((left_rgb_images, left_disp_estimated), dim=1)
+            right_rgbd_images = torch.cat((right_rgb_images, right_disp_estimated), dim=1)
 
             left_generated_volumes = recnet(left_rgbd_images)
             right_generated_volumes = recnet(right_rgbd_images)
@@ -181,9 +181,9 @@ def train_net(cfg):
             generated_volumes = torch.cat((left_generated_volumes, right_generated_volumes), dim=1)
             generated_volumes = torch.mean(generated_volumes, dim=1)
 
-            # Calculate losses for depth estimation and voxel reconstruction
-            disparity_loss = mse_loss(left_depth_estimated, left_depth_images) + \
-                             mse_loss(right_depth_estimated, right_depth_images)
+            # Calculate losses for disp estimation and voxel reconstruction
+            disparity_loss = mse_loss(left_disp_estimated, left_disp_images) + \
+                             mse_loss(right_disp_estimated, right_disp_images)
             voxel_loss = bce_loss(generated_volumes, ground_truth_volumes)
 
             # Gradient decent
