@@ -35,10 +35,11 @@ def save_checkpoints(cfg, file_path, epoch_idx, dispnet, dispnet_solver, recnet,
         'epoch_idx': epoch_idx,
         'best_iou': best_iou,
         'best_epoch': best_epoch,
+        'dispnet_state_dict': dispnet.state_dict(),
+        'dispnet_solver_state_dict': dispnet_solver.state_dict(),
         'recnet_state_dict': recnet.state_dict(),
         'recnet_solver_state_dict': recnet_solver.state_dict(),
     }
-
     torch.save(checkpoint, file_path)
 
 
