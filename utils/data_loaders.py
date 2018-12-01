@@ -103,7 +103,6 @@ class ShapeNetDataLoader:
             taxonomy_folder_name = taxonomy['taxonomy_id']
             print('[INFO] %s Collecting files of Taxonomy[ID=%s, Name=%s]' % (dt.now(), taxonomy['taxonomy_id'],
                                                                               taxonomy['taxonomy_name']))
-
             samples = []
             if dataset_type == DatasetType.TRAIN:
                 samples = taxonomy['train']
