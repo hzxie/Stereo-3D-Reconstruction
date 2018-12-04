@@ -22,7 +22,7 @@ from core.test import test_net
 
 
 def get_args_from_command_line():
-    parser = ArgumentParser(description='Parser of Runner of Pix2Vox')
+    parser = ArgumentParser(description='Parser of Runner of Stereo2Voxel')
     parser.add_argument(
         '--gpu', dest='gpu_id', help='GPU device id to use [cuda0]', default=cfg.CONST.DEVICE, type=str)
     parser.add_argument('--rand', dest='randomize', help='Randomize (do not use a fixed seed)', action='store_true')
@@ -77,7 +77,7 @@ def main():
 if __name__ == '__main__':
     # Check python version
     if sys.version_info < (3, 0):
-        raise Exception("Please follow the installation instruction on 'https://github.com/hzxie/Pix2Vox'")
+        raise Exception("Please follow the installation instruction on 'https://github.com/hzxie/Stereo2Voxel'")
 
     # Setup logger
     mp.log_to_stderr()

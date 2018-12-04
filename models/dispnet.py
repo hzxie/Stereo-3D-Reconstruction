@@ -214,7 +214,7 @@ class DispNet(torch.nn.Module):
         disp_features5c = disp_features4d + self.unpool5c(disp_features5b)
         # print(disp_features5c.size())     # torch.Size([batch_size, 2, 137, 137])
 
-        disparity_maps = torch.split(disp_features5c, 1, dim=1)
+        disparity_maps = torch.split(disp_features5c.clamp(min=0), 1, dim=1)
         # print(disparity_maps[0].size())     # torch.Size([batch_size, 1, 137, 137])
         # print(disparity_maps[1].size())     # torch.Size([batch_size, 1, 137, 137])
 

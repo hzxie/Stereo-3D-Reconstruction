@@ -54,19 +54,22 @@ class ToTensor(object):
 
 
 class Normalize(object):
-    def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
+    def __init__(self, img_mean, img_std, disp_norm_factor):
+        self.img_mean = img_mean
+        self.img_std = img_std
+        self.disp_norm_factor = disp_norm_factor
 
     def __call__(self, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image):
         left_rgb_image = self.normalize(left_rgb_image)
         right_rgb_image = self.normalize(right_rgb_image)
+        left_disp_image /= self.disp_norm_factor
+        right_disp_image /= self.disp_norm_factor
 
         return left_rgb_image, right_rgb_image, left_disp_image, right_disp_image
 
     def normalize(self, img):
-        img /= self.std
-        img -= self.mean
+        img /= self.img_std
+        img -= self.img_mean
         img *= 2
         return img
 

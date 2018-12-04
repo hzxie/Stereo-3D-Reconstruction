@@ -42,13 +42,14 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
         test_transforms = utils.data_transforms.Compose([
             utils.data_transforms.RandomBackground(cfg.DIR.RANDOM_BG_PATH),
             utils.data_transforms.CenterCrop(IMG_SIZE, CROP_SIZE),
-            utils.data_transforms.Normalize(mean=cfg.DATASET.MEAN, std=cfg.DATASET.STD),
+            utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD, cfg.DATASET.DISP_NORM_FACTOR),
             utils.data_transforms.ToTensor(),
         ])
 
         dataset_loader = utils.data_loaders.DATASET_LOADER_MAPPING[cfg.DATASET.DATASET_NAME](cfg)
         test_data_loader = torch.utils.data.DataLoader(
-            dataset=dataset_loader.get_dataset(utils.data_loaders.DatasetType.TEST, cfg.CONST.N_VIEWS, test_transforms),
+            dataset=dataset_loader.get_dataset(utils.data_loaders.DatasetType.TEST, cfg.CONST.N_VIEWS,
+                                               test_transforms),
             batch_size=1,
             num_workers=1,
             pin_memory=True,
@@ -97,7 +98,6 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             ground_truth_volume = utils.network_utils.var_or_cuda(ground_truth_volume)
 
             # Train the DispNet and RecNet
-            # TODO: Use a DispNet to estimate disp
             left_disp_estimated, right_disp_estimated = dispnet(left_rgb_image, right_rgb_image)
             left_rgbd_image = torch.cat((left_rgb_image, left_disp_estimated), dim=1)
             right_rgbd_image = torch.cat((right_rgb_image, right_disp_estimated), dim=1)
@@ -136,22 +136,28 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
                 # Disparity Map Visualization
                 # Volume Visualization
                 img_dir = output_dir % 'images'
-                test_writer.add_image('#%02d/Disparity Estimated/Left' % sample_idx, left_disp_estimated, epoch_idx)
-                test_writer.add_image('#%02d/Disparity GroundTruth/Left' % sample_idx, left_disp_image, epoch_idx)
-                test_writer.add_image('#%02d/Disparity Estimated/Right' % sample_idx, right_disp_estimated, epoch_idx)
-                test_writer.add_image('#%02d/Disparity GroundTruth/Right' % sample_idx, right_disp_image, epoch_idx)
-                
+                test_writer.add_image('Test Sample#%02d/Left Disparity Estimated' % sample_idx,
+                                      left_disp_estimated / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
+                test_writer.add_image('Test Sample#%02d/Left Disparity GroundTruth' % sample_idx,
+                                      left_disp_image, epoch_idx)
+                test_writer.add_image('Test Sample#%02d/Right Disparity Estimated' % sample_idx,
+                                      right_disp_estimated / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
+                test_writer.add_image('Test Sample#%02d/Right Disparity GroundTruth' % sample_idx,
+                                      right_disp_image, epoch_idx)
+
                 gv = generated_volume.cpu().numpy()
-                rendering_views = utils.binvox_visualization.get_voxel_views(gv, os.path.join(img_dir, 'test'), epoch_idx)
-                test_writer.add_image('#%02d/Volume Reconstructed' % sample_idx, rendering_views, epoch_idx)
+                rendering_views = utils.binvox_visualization.get_voxel_views(gv, os.path.join(img_dir, 'test'),
+                                                                             epoch_idx)
+                test_writer.add_image('Test Sample#%02d/Volume Reconstructed' % sample_idx, rendering_views, epoch_idx)
                 gtv = ground_truth_volume.cpu().numpy()
-                rendering_views = utils.binvox_visualization.get_voxel_views(gtv, os.path.join(img_dir, 'test'), epoch_idx)
-                test_writer.add_image('#%02d/Volume GroundTruth' % sample_idx, rendering_views, epoch_idx)
+                rendering_views = utils.binvox_visualization.get_voxel_views(gtv, os.path.join(img_dir, 'test'),
+                                                                             epoch_idx)
+                test_writer.add_image('Test Sample#%02d/Volume GroundTruth' % sample_idx, rendering_views, epoch_idx)
 
             # Print sample loss and IoU
             print('[INFO] %s Test[%d/%d] Taxonomy = %s Sample = %s DLoss = %.4f VLoss = %.4f IoU = %s' % \
-                (dt.now(), sample_idx + 1, n_samples, taxonomy_id, sample_name, disparity_loss.item(), voxel_loss.item(), \
-                    ['%.4f' % si for si in sample_iou]))
+                (dt.now(), sample_idx + 1, n_samples, taxonomy_id, sample_name, disparity_loss.item(),
+                    voxel_loss.item(), ['%.4f' % si for si in sample_iou]))
 
     # Output testing results
     mean_iou = []
