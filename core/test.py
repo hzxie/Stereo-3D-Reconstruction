@@ -146,12 +146,12 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
                                       right_disp_image, epoch_idx)
 
                 gv = generated_volume.cpu().numpy()
-                rendering_views = utils.binvox_visualization.get_voxel_views(gv, os.path.join(img_dir, 'test'),
-                                                                             epoch_idx)
+                rendering_views = utils.binvox_visualization.get_volume_views(gv, os.path.join(img_dir, 'test'),
+                                                                              epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Volume Reconstructed' % sample_idx, rendering_views, epoch_idx)
                 gtv = ground_truth_volume.cpu().numpy()
-                rendering_views = utils.binvox_visualization.get_voxel_views(gtv, os.path.join(img_dir, 'test'),
-                                                                             epoch_idx)
+                rendering_views = utils.binvox_visualization.get_volume_views(gtv, os.path.join(img_dir, 'test'),
+                                                                              epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Volume GroundTruth' % sample_idx, rendering_views, epoch_idx)
 
             # Print sample loss and IoU
