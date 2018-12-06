@@ -40,7 +40,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
         IMG_SIZE = cfg.CONST.IMG_H, cfg.CONST.IMG_W, cfg.CONST.IMG_C
         CROP_SIZE = cfg.CONST.CROP_IMG_H, cfg.CONST.CROP_IMG_W, cfg.CONST.CROP_IMG_C
         test_transforms = utils.data_transforms.Compose([
-            utils.data_transforms.RandomBackground(cfg.DIR.RANDOM_BG_PATH),
+            utils.data_transforms.RandomBackground(cfg.TEST.RANDOM_BG_COLOR_RANGE),
             utils.data_transforms.CenterCrop(IMG_SIZE, CROP_SIZE),
             utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD, cfg.DATASET.DISP_NORM_FACTOR),
             utils.data_transforms.ToTensor(),

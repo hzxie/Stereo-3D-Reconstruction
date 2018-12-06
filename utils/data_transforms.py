@@ -155,9 +155,8 @@ class RandomFlip(object):
 
 
 class RandomBackground(object):
-    def __init__(self, random_bg_folder_path):
-        self.random_bg_files = os.listdir(random_bg_folder_path)
-        self.random_bg_files = [os.path.join(random_bg_folder_path, rbf) for rbf in self.random_bg_files]
+    def __init__(self, random_bg_color_range):
+        self.random_bg_color_range = random_bg_color_range
 
     def __call__(self, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image):
         img_height, img_width, img_channels = left_rgb_image.shape
@@ -165,25 +164,19 @@ class RandomBackground(object):
             return left_rgb_image, right_rgb_image, left_disp_image, right_disp_image
 
         # If the image has the alpha channel, add the background
-        random_bg_file_path = random.choice(self.random_bg_files)
-        random_bg = cv2.imread(random_bg_file_path).astype(np.float32)
-        random_bg = cv2.resize(random_bg, (img_width, img_height))
+        r, g, b = [
+            np.random.randint(self.random_bg_color_range[i][0], self.random_bg_color_range[i][1] + 1)
+            for i in range(3)
+        ]
+        left_rgb_image = self.random_background(left_rgb_image, r, g, b)
+        right_rgb_image = self.random_background(right_rgb_image, r, g, b)
 
-        left_rgb_image = self.random_background(left_rgb_image, random_bg)
-        right_rgb_image = self.random_background(right_rgb_image, random_bg)
-
-        # fig = plt.figure()
-        # ax1 = fig.add_subplot(1, 2, 1)
-        # ax1.imshow(left_rgb_image.astype(np.uint8))
-        # ax2 = fig.add_subplot(1, 2, 2)
-        # ax2.imshow(right_rgb_image.astype(np.uint8))
-        # plt.show()
         return left_rgb_image, right_rgb_image, left_disp_image, right_disp_image
 
-    def random_background(self, img, random_bg):
-        disp = np.expand_dims(img[:, :, 3], axis=2)
-        mask = (disp == 0).astype(np.float32)
+    def random_background(self, img, r, g, b):
+        alpha = (np.expand_dims(img[:, :, 3], axis=2) == 0).astype(np.float32)
         img = img[:, :, :3]
-        img = mask * random_bg + (1 - mask) * img
+        bg_color = np.array([[[r, g, b]]])
+        img = alpha * bg_color + (1 - alpha) * img
 
         return img

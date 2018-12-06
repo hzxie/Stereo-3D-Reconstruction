@@ -49,7 +49,6 @@ __C.CONST.CROP_IMG_C                        = 4
 #
 __C.DIR                                     = edict()
 __C.DIR.OUT_PATH                            = './output'
-__C.DIR.RANDOM_BG_PATH                       = '/home/hzxie/Datasets/SUN2012/JPEGImages'
 
 #
 # Network
@@ -86,4 +85,5 @@ __C.TRAIN.SAVE_FREQ                         = 10            # weights will be ov
 # Testing options
 #
 __C.TEST                                    = edict()
+__C.TEST.RANDOM_BG_COLOR_RANGE              = [[240, 240], [240, 240], [240, 240]]
 __C.TEST.VOXEL_THRESH                       = [.2, .3, .4, .5]
