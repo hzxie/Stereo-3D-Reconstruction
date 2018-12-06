@@ -43,7 +43,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
         test_transforms = utils.data_transforms.Compose([
             utils.data_transforms.RandomBackground(cfg.TEST.RANDOM_BG_COLOR_RANGE),
             utils.data_transforms.CenterCrop(IMG_SIZE, CROP_SIZE),
-            utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD, cfg.DATASET.DISP_NORM_FACTOR),
+            utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD),
             utils.data_transforms.ToTensor(),
         ])
 
@@ -140,13 +140,13 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
                 # Volume Visualization
                 img_dir = output_dir % 'images'
                 test_writer.add_image('Test Sample#%02d/Left Disparity Estimated' % sample_idx,
-                                      left_disp_estimated.clamp(max=1), epoch_idx)
+                                      left_disp_estimated / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Left Disparity GroundTruth' % sample_idx,
-                                      left_disp_image, epoch_idx)
+                                      left_disp_image / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Right Disparity Estimated' % sample_idx,
-                                      right_disp_estimated.clamp(max=1), epoch_idx)
+                                      right_disp_estimated / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Right Disparity GroundTruth' % sample_idx,
-                                      right_disp_image, epoch_idx)
+                                      right_disp_image / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
 
                 gv = generated_volume.cpu().numpy()
                 rendering_views = utils.binvox_visualization.get_volume_views(gv, os.path.join(img_dir, 'test'),
