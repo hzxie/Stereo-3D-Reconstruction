@@ -5,12 +5,12 @@
 import torch
 
 
-class RecNet(torch.nn.Module):
+class Encoder(torch.nn.Module):
     def __init__(self, cfg):
-        super(RecNet, self).__init__()
+        super(Encoder, self).__init__()
         self.cfg = cfg
 
-        # Encoder
+        # Layer Definition
         self.conv1a = torch.nn.Sequential(
             torch.nn.Conv2d(4, 96, kernel_size=7, padding=3),
             torch.nn.BatchNorm2d(96),
@@ -88,72 +88,6 @@ class RecNet(torch.nn.Module):
         
         self.fc7 = torch.nn.Linear(1024, 8192)
 
-        # Decoder
-        self.unpool1a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=2, bias=False, padding=1, output_padding=1),
-            torch.nn.BatchNorm3d(128),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool1b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=1, bias=False, padding=1),
-            torch.nn.BatchNorm3d(128),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool1c = torch.nn.ConvTranspose3d(128, 128, kernel_size=1, stride=2, bias=False, output_padding=1)
-
-        self.unpool2a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=2, bias=False, padding=1, output_padding=1),
-            torch.nn.BatchNorm3d(128),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool2b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 128, kernel_size=3, stride=1, bias=False, padding=1),
-            torch.nn.BatchNorm3d(128),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool2c = torch.nn.ConvTranspose3d(128, 128, kernel_size=1, stride=2, bias=False, output_padding=1)
-
-        self.unpool3a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(128, 64, kernel_size=3, stride=2, bias=False, padding=1, output_padding=1),
-            torch.nn.BatchNorm3d(64),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool3b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(64, 64, kernel_size=3, stride=1, bias=False, padding=1),
-            torch.nn.BatchNorm3d(64),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool3c = torch.nn.ConvTranspose3d(128, 64, kernel_size=1, stride=2, bias=False, output_padding=1)
-
-        self.unpool4a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(64, 32, kernel_size=3, stride=1, bias=False, padding=1),
-            torch.nn.BatchNorm3d(32),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool4b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(32, 32, kernel_size=3, stride=1, bias=False, padding=1),
-            torch.nn.BatchNorm3d(32),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool4c = torch.nn.ConvTranspose3d(64, 32, kernel_size=1, stride=1, bias=False)
-
-        self.unpool5a = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(32, 8, kernel_size=3, stride=1, bias=False, padding=1),
-            torch.nn.BatchNorm3d(8),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool5b = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(8, 8, kernel_size=3, stride=1, bias=False, padding=1),
-            torch.nn.BatchNorm3d(8),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
-        )
-        self.unpool5c = torch.nn.ConvTranspose3d(32, 8, kernel_size=1, stride=1, bias=False)
-
-        self.unpool6 = torch.nn.Sequential(
-            torch.nn.ConvTranspose3d(8, 1, kernel_size=3, stride=1, bias=False, padding=1),
-            torch.nn.Sigmoid()
-        )
-
     def forward(self, rgbd_images):
         # print(rgbd_images.size())  # torch.Size([batch_size, 4, 137, 137])
         features = self.conv1a(rgbd_images.view(-1, self.cfg.CONST.IMG_C, self.cfg.CONST.IMG_H, self.cfg.CONST.IMG_W))
@@ -189,18 +123,4 @@ class RecNet(torch.nn.Module):
         features = self.fc7(features.view(-1, 1024))
         # print(features.size())    # torch.Size([batch_size, 8192])
 
-        gen_voxel = features.view(-1, 128, 4, 4, 4)
-        # print(gen_voxel.size())   # torch.Size([batch_size, 128, 4, 4, 4])
-        gen_voxel = self.unpool1b(self.unpool1a(gen_voxel)) + self.unpool1c(gen_voxel)
-        # print(gen_voxel.size())   # torch.Size([batch_size, 128, 8, 8, 8])
-        gen_voxel = self.unpool2b(self.unpool2a(gen_voxel)) + self.unpool2c(gen_voxel)
-        # print(gen_voxel.size())   # torch.Size([batch_size, 128, 16, 16, 16])
-        gen_voxel = self.unpool3b(self.unpool3a(gen_voxel)) + self.unpool3c(gen_voxel)
-        # print(gen_voxel.size())   # torch.Size([batch_size, 64, 32, 32, 32])
-        gen_voxel = self.unpool4b(self.unpool4a(gen_voxel)) + self.unpool4c(gen_voxel)
-        # print(gen_voxel.size())   # torch.Size([batch_size, 32, 32, 32, 32])
-        gen_voxel = self.unpool5b(self.unpool5a(gen_voxel)) + self.unpool5c(gen_voxel)
-        # print(gen_voxel.size())   # torch.Size([batch_size, 8, 32, 32, 32])
-        gen_voxel = self.unpool6(gen_voxel)
-        # print(gen_voxel.size())   # torch.Size([batch_size, 1, 32, 32, 32])
-        return gen_voxel
+        return features

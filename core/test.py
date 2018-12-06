@@ -21,10 +21,11 @@ from tensorboardX import SummaryWriter
 from time import time
 
 from models.dispnet import DispNet
-from models.recnet import RecNet
+from models.encoder import Encoder
+from models.decoder import Decoder
 
 def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
-        test_writer=None, dispnet=None, recnet=None):
+        test_writer=None, dispnet=None, encoder=None, decoder=None):
     # Enable the inbuilt cudnn auto-tuner to find the best algorithm to use
     torch.backends.cudnn.benchmark = True
 
@@ -56,19 +57,22 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             shuffle=False)
 
     # Set up networks
-    if dispnet is None or recnet is None:
+    if dispnet is None or encoder is None or decoder is None:
         dispnet = DispNet(cfg)
-        recnet = RecNet(cfg)
+        encoder = Encoder(cfg)
+        decoder = Decoder(cfg)
 
         if torch.cuda.is_available():
             dispnet = torch.nn.DataParallel(dispnet).cuda()
-            recnet = torch.nn.DataParallel(recnet).cuda()
+            encoder = torch.nn.DataParallel(encoder).cuda()
+            decoder = torch.nn.DataParallel(decoder).cuda()
 
         print('[INFO] %s Loading weights from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
         checkpoint = torch.load(cfg.CONST.WEIGHTS)
         epoch_idx = checkpoint['epoch_idx']
         dispnet.load_state_dict(checkpoint['dispnet_state_dict'])
-        recnet.load_state_dict(checkpoint['recnet_state_dict'])
+        encoder.load_state_dict(checkpoint['encoder_state_dict'])
+        decoder.load_state_dict(checkpoint['decoder_state_dict'])
 
     # Set up loss functions
     mse_loss = torch.nn.MSELoss()
@@ -82,7 +86,8 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
 
     # Switch models to evaluation mode
     dispnet.eval()
-    recnet.eval()
+    encoder.eval()
+    decoder.eval()
 
     for sample_idx, (taxonomy_id, sample_name, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image,
                      ground_truth_volume) in enumerate(test_data_loader):
@@ -102,11 +107,9 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             left_rgbd_image = torch.cat((left_rgb_image, left_disp_estimated), dim=1)
             right_rgbd_image = torch.cat((right_rgb_image, right_disp_estimated), dim=1)
 
-            left_generated_volume = recnet(left_rgbd_image)
-            right_generated_volume = recnet(right_rgbd_image)
-            # TODO: Use a better method to fuse two Stereo volumes
-            generated_volume = torch.cat((left_generated_volume, right_generated_volume), dim=1)
-            generated_volume = torch.mean(generated_volume, dim=1)
+            left_img_features = encoder(left_rgbd_image)
+            right_img_features = encoder(right_rgbd_image)
+            generated_volume = decoder(left_img_features, right_img_features)
 
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_image) + \

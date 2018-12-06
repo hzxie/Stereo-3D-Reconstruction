@@ -20,7 +20,8 @@ from time import time
 
 from core.test import test_net
 from models.dispnet import DispNet
-from models.recnet import RecNet
+from models.encoder import Encoder
+from models.decoder import Decoder
 
 
 def train_net(cfg):
@@ -62,13 +63,16 @@ def train_net(cfg):
 
     # Set up networks
     dispnet = DispNet(cfg)
-    recnet = RecNet(cfg)
+    encoder = Encoder(cfg)
+    decoder = Decoder(cfg)
     print('[DEBUG] %s Parameters in DispNet: %d.' % (dt.now(), utils.network_utils.count_parameters(dispnet)))
-    print('[DEBUG] %s Parameters in RecNet: %d.' % (dt.now(), utils.network_utils.count_parameters(recnet)))
+    print('[DEBUG] %s Parameters in Encoder: %d.' % (dt.now(), utils.network_utils.count_parameters(encoder)))
+    print('[DEBUG] %s Parameters in Decoder: %d.' % (dt.now(), utils.network_utils.count_parameters(decoder)))
 
     # Initialize weights of networks
     dispnet.apply(utils.network_utils.init_weights)
-    recnet.apply(utils.network_utils.init_weights)
+    encoder.apply(utils.network_utils.init_weights)
+    decoder.apply(utils.network_utils.init_weights)
 
     # Set up solver
     if cfg.TRAIN.POLICY == 'adam':
@@ -76,18 +80,26 @@ def train_net(cfg):
             filter(lambda p: p.requires_grad, dispnet.parameters()),
             lr=cfg.TRAIN.DISPNET_LEARNING_RATE,
             betas=cfg.TRAIN.BETAS)
-        recnet_solver = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, recnet.parameters()),
-            lr=cfg.TRAIN.RECNET_LEARNING_RATE,
+        encoder_solver = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, encoder.parameters()),
+            lr=cfg.TRAIN.ENCODER_LEARNING_RATE,
+            betas=cfg.TRAIN.BETAS)
+        decoder_solver = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, decoder.parameters()),
+            lr=cfg.TRAIN.DECODER_LEARNING_RATE,
             betas=cfg.TRAIN.BETAS)
     elif cfg.TRAIN.POLICY == 'sgd':
         dispnet_solver = torch.optim.SGD(
             filter(lambda p: p.requires_grad, dispnet.parameters()),
             lr=cfg.TRAIN.DISPNET_LEARNING_RATE,
             momentum=cfg.TRAIN.MOMENTUM)
-        recnet_solver = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, recnet.parameters()),
-            lr=cfg.TRAIN.RECNET_LEARNING_RATE,
+        encoder_solver = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, encoder.parameters()),
+            lr=cfg.TRAIN.ENCODER_LEARNING_RATE,
+            momentum=cfg.TRAIN.MOMENTUM)
+        decoder_solver = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, decoder.parameters()),
+            lr=cfg.TRAIN.DECODER_LEARNING_RATE,
             momentum=cfg.TRAIN.MOMENTUM)
     else:
         raise Exception('[FATAL] %s Unknown optimizer %s.' % (dt.now(), cfg.TRAIN.POLICY))
@@ -95,12 +107,15 @@ def train_net(cfg):
     # Set up learning rate scheduler to decay learning rates dynamically
     dispnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
         dispnet_solver, milestones=cfg.TRAIN.DISPNET_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
-    recnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        recnet_solver, milestones=cfg.TRAIN.RECNET_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
+    encoder_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        encoder_solver, milestones=cfg.TRAIN.ENCODER_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
+    decoder_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        decoder_solver, milestones=cfg.TRAIN.DECODER_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
 
     if torch.cuda.is_available():
         dispnet = torch.nn.DataParallel(dispnet).cuda()
-        recnet = torch.nn.DataParallel(recnet).cuda()
+        encoder = torch.nn.DataParallel(encoder).cuda()
+        decoder = torch.nn.DataParallel(decoder).cuda()
 
     # Set up loss functions
     mse_loss = torch.nn.MSELoss()
@@ -119,8 +134,10 @@ def train_net(cfg):
 
         dispnet.load_state_dict(checkpoint['dispnet_state_dict'])
         dispnet_solver.load_state_dict(checkpoint['dispnet_solver_state_dict'])
-        recnet.load_state_dict(checkpoint['recnet_state_dict'])
-        recnet_solver.load_state_dict(checkpoint['recnet_solver_state_dict'])
+        encoder.load_state_dict(checkpoint['encoder_state_dict'])
+        encoder_solver.load_state_dict(checkpoint['encoder_solver_state_dict'])
+        decoder.load_state_dict(checkpoint['decoder_state_dict'])
+        decoder_solver.load_state_dict(checkpoint['decoder_solver_state_dict'])
 
         print('[INFO] %s Recover complete. Current epoch #%d, Best IoU = %.4f at epoch #%d.' \
                  % (dt.now(), init_epoch, best_iou, best_epoch))
@@ -145,11 +162,13 @@ def train_net(cfg):
 
         # Adjust learning rate
         dispnet_lr_scheduler.step()
-        recnet_lr_scheduler.step()
+        encoder_lr_scheduler.step()
+        decoder_lr_scheduler.step()
 
         # switch models to training mode
         dispnet.train()
-        recnet.train()
+        encoder.train()
+        decoder.train()
 
         batch_end_time = time()
         n_batches = len(train_data_loader)
@@ -175,11 +194,9 @@ def train_net(cfg):
             left_rgbd_images = torch.cat((left_rgb_images, left_disp_estimated), dim=1)
             right_rgbd_images = torch.cat((right_rgb_images, right_disp_estimated), dim=1)
 
-            left_generated_volumes = recnet(left_rgbd_images)
-            right_generated_volumes = recnet(right_rgbd_images)
-            # TODO: Use a better method to fuse two Stereo volumes
-            generated_volumes = torch.cat((left_generated_volumes, right_generated_volumes), dim=1)
-            generated_volumes = torch.mean(generated_volumes, dim=1)
+            left_img_features = encoder(left_rgbd_images)
+            right_img_features = encoder(right_rgbd_images)
+            generated_volumes = decoder(left_img_features, right_img_features)
 
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_images) + \
@@ -188,11 +205,13 @@ def train_net(cfg):
 
             # Gradient decent
             dispnet.zero_grad()
-            recnet.zero_grad()
+            encoder.zero_grad()
+            decoder.zero_grad()
             disparity_loss.backward(retain_graph=True)
             voxel_loss.backward()
             dispnet_solver.step()
-            recnet_solver.step()
+            encoder_solver.step()
+            decoder_solver.step()
 
             # Append loss to average metrics
             disparity_losses.update(disparity_loss.item())
@@ -219,7 +238,7 @@ def train_net(cfg):
               (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, epoch_end_time - epoch_start_time, disparity_losses.avg, voxel_losses.avg))
 
         # Validate the training models
-        iou = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, recnet)
+        iou = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, encoder, decoder)
 
         # Save weights to file
         if (epoch_idx + 1) % cfg.TRAIN.SAVE_FREQ == 0:
@@ -228,8 +247,8 @@ def train_net(cfg):
 
             utils.network_utils.save_checkpoints(cfg, \
                     os.path.join(ckpt_dir, 'ckpt-epoch-%04d.pth.tar' % (epoch_idx + 1)), \
-                    epoch_idx + 1, dispnet, dispnet_solver, recnet, recnet_solver, \
-                    best_iou, best_epoch)
+                    epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver, \
+                    decoder, decoder_solver, best_iou, best_epoch)
         if iou > best_iou:
             if not os.path.exists(ckpt_dir):
                 os.makedirs(ckpt_dir)
@@ -238,8 +257,8 @@ def train_net(cfg):
             best_epoch = epoch_idx + 1
             utils.network_utils.save_checkpoints(cfg, \
                     os.path.join(ckpt_dir, 'best-ckpt.pth.tar'), \
-                    epoch_idx + 1, dispnet, dispnet_solver, recnet, recnet_solver, \
-                    best_iou, best_epoch)
+                    epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver, \
+                    decoder, decoder_solver, best_iou, best_epoch)
 
     # Close SummaryWriter for TensorBoard
     train_writer.close()

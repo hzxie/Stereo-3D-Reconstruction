@@ -63,23 +63,18 @@ __C.TRAIN                                   = edict()
 __C.TRAIN.RESUME_TRAIN                      = False
 __C.TRAIN.NUM_WORKER                        = 4             # number of data workers
 __C.TRAIN.NUM_EPOCHES                       = 250
-__C.TRAIN.ROTATE_DEGREE_RANGE               = (-15, 15)     # range of degrees to select from
-__C.TRAIN.TRANSLATE_RANGE                   = (.1, .1)      # tuple of maximum absolute fraction for horizontal and vertical translations
-__C.TRAIN.SCALE_RANGE                       = (.75, 1.5)    # tuple of scaling factor interval
-__C.TRAIN.BRIGHTNESS                        = .25
-__C.TRAIN.CONTRAST                          = .25
-__C.TRAIN.SATURATION                        = .25
-__C.TRAIN.HUE                               = .25
 __C.TRAIN.RANDOM_BG_COLOR_RANGE             = [[225, 255], [225, 255], [225, 255]]
 __C.TRAIN.POLICY                            = 'adam'        # available options: sgd, adam
 __C.TRAIN.DISPNET_LEARNING_RATE             = 1e-4
-__C.TRAIN.RECNET_LEARNING_RATE              = 1e-4
+__C.TRAIN.ENCODER_LEARNING_RATE             = 1e-4
+__C.TRAIN.DECODER_LEARNING_RATE             = 1e-4
 __C.TRAIN.DISPNET_LR_MILESTONES             = [150]
-__C.TRAIN.RECNET_LR_MILESTONES              = [150]
+__C.TRAIN.ENCODER_LR_MILESTONES             = [150]
+__C.TRAIN.DECODER_LR_MILESTONES             = [150]
 __C.TRAIN.BETAS                             = (.9, .999)
 __C.TRAIN.MOMENTUM                          = .9
 __C.TRAIN.GAMMA                             = .5
-__C.TRAIN.SAVE_FREQ                         = 10            # weights will be overwritten every save_freq epoch
+__C.TRAIN.SAVE_FREQ                         = 25            # weights will be overwritten every save_freq epoch
 
 #
 # Testing options
