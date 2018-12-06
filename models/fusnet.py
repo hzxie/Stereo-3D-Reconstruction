@@ -5,14 +5,14 @@
 import torch
 
 
-class Encoder(torch.nn.Module):
+class FusionNet(torch.nn.Module):
     def __init__(self, cfg):
-        super(Encoder, self).__init__()
+        super(FusionNet, self).__init__()
         self.cfg = cfg
 
         # Layer Definition
         self.conv1a = torch.nn.Sequential(
-            torch.nn.Conv2d(4, 96, kernel_size=7, padding=3),
+            torch.nn.Conv2d(8, 96, kernel_size=7, padding=3),
             torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
@@ -88,9 +88,10 @@ class Encoder(torch.nn.Module):
 
         self.fc7 = torch.nn.Linear(1024, 8192)
 
-    def forward(self, rgbd_images):
-        # print(rgbd_images.size())  # torch.Size([batch_size, 4, 137, 137])
-        features = self.conv1a(rgbd_images.view(-1, self.cfg.CONST.IMG_C, self.cfg.CONST.IMG_H, self.cfg.CONST.IMG_W))
+    def forward(self, left_rgbd_images, right_rgbd_images):
+        rgbd_images = torch.cat((left_rgbd_images, right_rgbd_images), dim=1)
+        # print(rgbd_images.size())  # torch.Size([batch_size, 8, 137, 137])
+        features = self.conv1a(rgbd_images.view(-1, self.cfg.CONST.IMG_C * 2, self.cfg.CONST.IMG_H, self.cfg.CONST.IMG_W))
         # print(features.size())    # torch.Size([batch_size, 96, 137, 137])
         features = self.conv1b(features)
         # print(features.size())    # torch.Size([batch_size, 96, 137, 137])

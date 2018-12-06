@@ -21,11 +21,12 @@ from tensorboardX import SummaryWriter
 from time import time
 
 from models.dispnet import DispNet
+from models.fusnet import FusionNet
 from models.encoder import Encoder
 from models.decoder import Decoder
 
 def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
-        test_writer=None, dispnet=None, encoder=None, decoder=None):
+        test_writer=None, dispnet=None, encoder=None, decoder=None, fusnet=None):
     # Enable the inbuilt cudnn auto-tuner to find the best algorithm to use
     torch.backends.cudnn.benchmark = True
 
@@ -57,15 +58,17 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             shuffle=False)
 
     # Set up networks
-    if dispnet is None or encoder is None or decoder is None:
+    if dispnet is None or encoder is None or decoder is None or fusnet is None:
         dispnet = DispNet(cfg)
         encoder = Encoder(cfg)
         decoder = Decoder(cfg)
+        fusnet = FusionNet(cfg)
 
         if torch.cuda.is_available():
             dispnet = torch.nn.DataParallel(dispnet).cuda()
             encoder = torch.nn.DataParallel(encoder).cuda()
             decoder = torch.nn.DataParallel(decoder).cuda()
+            fusnet = torch.nn.DataParallel(fusnet).cuda()
 
         print('[INFO] %s Loading weights from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
         checkpoint = torch.load(cfg.CONST.WEIGHTS)
@@ -73,6 +76,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
         dispnet.load_state_dict(checkpoint['dispnet_state_dict'])
         encoder.load_state_dict(checkpoint['encoder_state_dict'])
         decoder.load_state_dict(checkpoint['decoder_state_dict'])
+        fusnet.load_state_dict(checkpoint['fusnet_state_dict'])
 
     # Set up loss functions
     mse_loss = torch.nn.MSELoss()
@@ -88,6 +92,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     dispnet.eval()
     encoder.eval()
     decoder.eval()
+    fusnet.eval()
 
     for sample_idx, (taxonomy_id, sample_name, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image,
                      ground_truth_volume) in enumerate(test_data_loader):
@@ -109,7 +114,8 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
 
             left_img_features = encoder(left_rgbd_image)
             right_img_features = encoder(right_rgbd_image)
-            generated_volume = decoder(left_img_features, right_img_features)
+            fusnet_features = fusnet(left_rgbd_image, right_rgbd_image)
+            generated_volume = decoder(left_img_features, right_img_features, fusnet_features)
 
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_image) + \

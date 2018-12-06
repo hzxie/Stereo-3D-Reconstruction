@@ -20,6 +20,7 @@ from time import time
 
 from core.test import test_net
 from models.dispnet import DispNet
+from models.fusnet import FusionNet
 from models.encoder import Encoder
 from models.decoder import Decoder
 
@@ -65,14 +66,17 @@ def train_net(cfg):
     dispnet = DispNet(cfg)
     encoder = Encoder(cfg)
     decoder = Decoder(cfg)
+    fusnet = FusionNet(cfg)
     print('[DEBUG] %s Parameters in DispNet: %d.' % (dt.now(), utils.network_utils.count_parameters(dispnet)))
     print('[DEBUG] %s Parameters in Encoder: %d.' % (dt.now(), utils.network_utils.count_parameters(encoder)))
     print('[DEBUG] %s Parameters in Decoder: %d.' % (dt.now(), utils.network_utils.count_parameters(decoder)))
+    print('[DEBUG] %s Parameters in FusionNet: %d.' % (dt.now(), utils.network_utils.count_parameters(fusnet)))
 
     # Initialize weights of networks
     dispnet.apply(utils.network_utils.init_weights)
     encoder.apply(utils.network_utils.init_weights)
     decoder.apply(utils.network_utils.init_weights)
+    fusnet.apply(utils.network_utils.init_weights)
 
     # Set up solver
     if cfg.TRAIN.POLICY == 'adam':
@@ -88,6 +92,10 @@ def train_net(cfg):
             filter(lambda p: p.requires_grad, decoder.parameters()),
             lr=cfg.TRAIN.DECODER_LEARNING_RATE,
             betas=cfg.TRAIN.BETAS)
+        fusnet_solver = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, fusnet.parameters()),
+            lr=cfg.TRAIN.FUSNET_LEARNING_RATE,
+            betas=cfg.TRAIN.BETAS)
     elif cfg.TRAIN.POLICY == 'sgd':
         dispnet_solver = torch.optim.SGD(
             filter(lambda p: p.requires_grad, dispnet.parameters()),
@@ -101,6 +109,10 @@ def train_net(cfg):
             filter(lambda p: p.requires_grad, decoder.parameters()),
             lr=cfg.TRAIN.DECODER_LEARNING_RATE,
             momentum=cfg.TRAIN.MOMENTUM)
+        fusnet_solver = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, fusnet.parameters()),
+            lr=cfg.TRAIN.FUSNET_LEARNING_RATE,
+            momentum=cfg.TRAIN.MOMENTUM)
     else:
         raise Exception('[FATAL] %s Unknown optimizer %s.' % (dt.now(), cfg.TRAIN.POLICY))
 
@@ -111,11 +123,14 @@ def train_net(cfg):
         encoder_solver, milestones=cfg.TRAIN.ENCODER_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
     decoder_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
         decoder_solver, milestones=cfg.TRAIN.DECODER_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
+    fusnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        fusnet_solver, milestones=cfg.TRAIN.FUSNET_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
 
     if torch.cuda.is_available():
         dispnet = torch.nn.DataParallel(dispnet).cuda()
         encoder = torch.nn.DataParallel(encoder).cuda()
         decoder = torch.nn.DataParallel(decoder).cuda()
+        fusnet = torch.nn.DataParallel(fusnet).cuda()
 
     # Set up loss functions
     mse_loss = torch.nn.MSELoss()
@@ -138,6 +153,8 @@ def train_net(cfg):
         encoder_solver.load_state_dict(checkpoint['encoder_solver_state_dict'])
         decoder.load_state_dict(checkpoint['decoder_state_dict'])
         decoder_solver.load_state_dict(checkpoint['decoder_solver_state_dict'])
+        fusnet.load_state_dict(checkpoint['fusnet_state_dict'])
+        fusnet_solver.load_state_dict(checkpoint['fusnet_solver_state_dict'])
 
         print('[INFO] %s Recover complete. Current epoch #%d, Best IoU = %.4f at epoch #%d.' \
                  % (dt.now(), init_epoch, best_iou, best_epoch))
@@ -164,11 +181,13 @@ def train_net(cfg):
         dispnet_lr_scheduler.step()
         encoder_lr_scheduler.step()
         decoder_lr_scheduler.step()
+        fusnet_lr_scheduler.step()
 
         # switch models to training mode
         dispnet.train()
         encoder.train()
         decoder.train()
+        fusnet.train()
 
         batch_end_time = time()
         n_batches = len(train_data_loader)
@@ -196,7 +215,8 @@ def train_net(cfg):
 
             left_img_features = encoder(left_rgbd_images)
             right_img_features = encoder(right_rgbd_images)
-            generated_volumes = decoder(left_img_features, right_img_features)
+            fusnet_features = fusnet(left_rgbd_images, right_rgbd_images)
+            generated_volumes = decoder(left_img_features, right_img_features, fusnet_features)
 
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_images) + \
@@ -235,10 +255,11 @@ def train_net(cfg):
         # Tick / tock
         epoch_end_time = time()
         print('[INFO] %s Epoch [%d/%d] EpochTime = %.3f (s) DLoss = %.4f VLoss = %.4f' %
-              (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, epoch_end_time - epoch_start_time, disparity_losses.avg, voxel_losses.avg))
+              (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, epoch_end_time - epoch_start_time, 
+                disparity_losses.avg, voxel_losses.avg))
 
         # Validate the training models
-        iou = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, encoder, decoder)
+        iou = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, encoder, decoder, fusnet)
 
         # Save weights to file
         if (epoch_idx + 1) % cfg.TRAIN.SAVE_FREQ == 0:
@@ -248,7 +269,7 @@ def train_net(cfg):
             utils.network_utils.save_checkpoints(cfg, \
                     os.path.join(ckpt_dir, 'ckpt-epoch-%04d.pth.tar' % (epoch_idx + 1)), \
                     epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver, \
-                    decoder, decoder_solver, best_iou, best_epoch)
+                    decoder, decoder_solver, fusnet, fusnet_solver, best_iou, best_epoch)
         if iou > best_iou:
             if not os.path.exists(ckpt_dir):
                 os.makedirs(ckpt_dir)
@@ -258,7 +279,7 @@ def train_net(cfg):
             utils.network_utils.save_checkpoints(cfg, \
                     os.path.join(ckpt_dir, 'best-ckpt.pth.tar'), \
                     epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver, \
-                    decoder, decoder_solver, best_iou, best_epoch)
+                    decoder, decoder_solver, fusnet, fusnet_solver, best_iou, best_epoch)
 
     # Close SummaryWriter for TensorBoard
     train_writer.close()
