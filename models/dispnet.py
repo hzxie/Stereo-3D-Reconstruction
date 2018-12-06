@@ -13,139 +13,113 @@ class DispNet(torch.nn.Module):
         # Encoder
         self.conv1a = torch.nn.Sequential(
             torch.nn.Conv2d(6, 48, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.conv1b = torch.nn.Sequential(
             torch.nn.Conv2d(48, 48, kernel_size=3, padding=1, stride=2),
-            torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.conv1c = torch.nn.Sequential(
             torch.nn.Conv2d(48, 48, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
 
         self.conv2a = torch.nn.Sequential(
             torch.nn.Conv2d(48, 96, kernel_size=3, padding=1, stride=2),
-            torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.conv2b = torch.nn.Sequential(
             torch.nn.Conv2d(96, 96, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
 
         self.conv3a = torch.nn.Sequential(
             torch.nn.Conv2d(96, 128, kernel_size=3, padding=1, stride=2),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.conv3b = torch.nn.Sequential(
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
 
         self.conv4a = torch.nn.Sequential(
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE),
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128)
         )
         self.conv4b = torch.nn.Sequential(
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE),
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128)
         )
         self.conv4c = torch.nn.Sequential(
             torch.nn.Conv2d(128, 128, kernel_size=3, dilation=2, padding=2),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE),
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128)
         )
 
         # Decoder
         self.unpool1a = torch.nn.Sequential(
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool1b = torch.nn.Sequential(
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool1c = torch.nn.Conv2d(128, 2, kernel_size=3, padding=1)
 
         self.unpool2a = torch.nn.Sequential(
             torch.nn.Conv2d(258, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool2b = torch.nn.Sequential(
             torch.nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool2c = torch.nn.Conv2d(128, 2, kernel_size=3, padding=1)
         self.unpool2d = torch.nn.ConvTranspose2d(2, 2, kernel_size=3, stride=2, bias=False, padding=1)
         self.unpool2e = torch.nn.Sequential(
             torch.nn.ConvTranspose2d(128, 96, kernel_size=3, stride=2, padding=1),
-            torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
 
         self.unpool3a = torch.nn.Sequential(
             torch.nn.Conv2d(194, 96, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool3b = torch.nn.Sequential(
             torch.nn.Conv2d(96, 96, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool3c = torch.nn.Conv2d(96, 2, kernel_size=3, padding=1)
         self.unpool3d = torch.nn.ConvTranspose2d(2, 2, kernel_size=3, stride=2, bias=False, padding=1)
         self.unpool3e = torch.nn.Sequential(
             torch.nn.ConvTranspose2d(96, 48, kernel_size=3, stride=2, padding=1),
-            torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
 
         self.unpool4a = torch.nn.Sequential(
             torch.nn.Conv2d(50, 48, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool4b = torch.nn.Sequential(
             torch.nn.Conv2d(48, 48, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool4c = torch.nn.Conv2d(48, 2, kernel_size=3, padding=1)
         self.unpool4d = torch.nn.ConvTranspose2d(2, 2, kernel_size=3, stride=2, bias=False, padding=1)
         self.unpool4e = torch.nn.Sequential(
             torch.nn.ConvTranspose2d(48, 32, kernel_size=3, stride=2, padding=1),
-            torch.nn.BatchNorm2d(32),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
 
         self.unpool5a = torch.nn.Sequential(
             torch.nn.Conv2d(34, 32, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(32),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool5b = torch.nn.Sequential(
             torch.nn.Conv2d(32, 32, kernel_size=3, padding=1),
-            torch.nn.BatchNorm2d(32),
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.unpool5c = torch.nn.Conv2d(32, 2, kernel_size=3, padding=1)

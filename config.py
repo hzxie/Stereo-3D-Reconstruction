@@ -40,7 +40,6 @@ __C.CONST.IMG_C                             = 4         # Image channels for inp
 __C.CONST.N_VOX                             = 32
 __C.CONST.BATCH_SIZE                        = 20
 __C.CONST.N_VIEWS                           = 24
-__C.CONST.N_VIEWS_RENDERING                 = 1
 __C.CONST.CROP_IMG_W                        = 210
 __C.CONST.CROP_IMG_H                        = 210
 __C.CONST.CROP_IMG_C                        = 4
