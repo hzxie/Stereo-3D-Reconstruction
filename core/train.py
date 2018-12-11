@@ -209,13 +209,13 @@ def train_net(cfg):
             ground_truth_volumes = utils.network_utils.var_or_cuda(ground_truth_volumes)
 
             # Train the DispNet and RecNet
-            left_disp_estimated, right_disp_estimated = dispnet(left_rgb_images, right_rgb_images)
+            left_disp_estimated, right_disp_estimated, disp_features = dispnet(left_rgb_images, right_rgb_images)
             left_rgbd_images = torch.cat((left_rgb_images, left_disp_estimated), dim=1)
             right_rgbd_images = torch.cat((right_rgb_images, right_disp_estimated), dim=1)
 
             left_img_features = encoder(left_rgbd_images)
             right_img_features = encoder(right_rgbd_images)
-            fusnet_features = fusnet(left_rgbd_images, right_rgbd_images)
+            fusnet_features = fusnet(left_rgbd_images, right_rgbd_images, disp_features)
             generated_volumes = decoder(left_img_features, right_img_features, fusnet_features)
 
             # Calculate losses for disp estimation and voxel reconstruction

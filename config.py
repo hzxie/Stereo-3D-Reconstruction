@@ -49,6 +49,7 @@ __C.CONST.CROP_IMG_C                        = 4
 #
 __C.DIR                                     = edict()
 __C.DIR.OUT_PATH                            = './output'
+__C.DIR.RANDOM_BG_PATH                      = '/home/hzxie/Datasets/SUN2012/JPEGImages'
 
 #
 # Network

@@ -192,4 +192,4 @@ class DispNet(torch.nn.Module):
         # print(disparity_maps[0].size())     # torch.Size([batch_size, 1, 137, 137])
         # print(disparity_maps[1].size())     # torch.Size([batch_size, 1, 137, 137])
 
-        return disparity_maps[0], disparity_maps[1]
+        return disparity_maps[0], disparity_maps[1], disp_features4d
