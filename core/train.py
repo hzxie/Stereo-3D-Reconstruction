@@ -227,11 +227,13 @@ def train_net(cfg):
             dispnet.zero_grad()
             encoder.zero_grad()
             decoder.zero_grad()
+            fusnet.zero_grad()
             disparity_loss.backward(retain_graph=True)
             voxel_loss.backward()
             dispnet_solver.step()
             encoder_solver.step()
             decoder_solver.step()
+            fusnet_solver.step()
 
             # Append loss to average metrics
             disparity_losses.update(disparity_loss.item())
