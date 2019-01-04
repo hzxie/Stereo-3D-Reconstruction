@@ -115,7 +115,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             left_img_features, left_ll_features = encoder(left_rgbd_image)
             right_img_features, right_ll_features = encoder(right_rgbd_image)
             corr_features = corrnet(left_ll_features, right_ll_features)
-            generated_volumes = decoder(left_img_features, right_img_features, corr_features)
+            generated_volume = decoder(left_img_features, right_img_features, corr_features)
 
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_image) + \

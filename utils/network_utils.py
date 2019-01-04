@@ -30,7 +30,7 @@ def init_weights(m):
 
 
 def save_checkpoints(cfg, file_path, epoch_idx, dispnet, dispnet_solver, encoder, encoder_solver, decoder,
-                     decoder_solver, fusnet, fusnet_solver, best_iou, best_epoch):
+                     decoder_solver, corrnet, corrnet_solver, best_iou, best_epoch):
     print('[INFO] %s Saving checkpoint to %s ...' % (dt.now(), file_path))
     checkpoint = {
         'epoch_idx': epoch_idx,
@@ -42,8 +42,8 @@ def save_checkpoints(cfg, file_path, epoch_idx, dispnet, dispnet_solver, encoder
         'encoder_solver_state_dict': encoder_solver.state_dict(),
         'decoder_state_dict': decoder.state_dict(),
         'decoder_solver_state_dict': decoder_solver.state_dict(),
-        'fusnet_state_dict': fusnet.state_dict(),
-        'fusnet_solver_state_dict': fusnet_solver.state_dict()
+        'corrnet_state_dict': corrnet.state_dict(),
+        'corrnet_solver_state_dict': corrnet_solver.state_dict()
     }
     torch.save(checkpoint, file_path)
 
