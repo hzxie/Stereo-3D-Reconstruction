@@ -101,6 +101,7 @@ class Encoder(torch.nn.Module):
         features = self.pool2(features)
         # print(features.size())    # torch.Size([batch_size, 128, 34, 34])
         features = self.conv3b(self.conv3a(features)) + self.conv3c(features)
+        ll_features = features
         # print(features.size())    # torch.Size([batch_size, 128, 34, 34])
         features = self.pool3(features)
         # print(features.size())    # torch.Size([batch_size, 256, 17, 17])
@@ -123,4 +124,4 @@ class Encoder(torch.nn.Module):
         features = self.fc7(features.view(-1, 1024))
         # print(features.size())    # torch.Size([batch_size, 8192])
 
-        return features
+        return features, ll_features

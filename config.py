@@ -26,7 +26,7 @@ __C.DATASET                                 = edict()
 __C.DATASET.DATASET_NAME                    = 'ShapeNet'
 __C.DATASET.IMG_MEAN                        = [0.5, 0.5, 0.5]
 __C.DATASET.IMG_STD                         = [255, 255, 255]
-__C.DATASET.DISP_NORM_FACTOR                = 20
+__C.DATASET.MAX_DISP_VALUE                  = 20
 
 #
 # Common
@@ -68,12 +68,12 @@ __C.TRAIN.RANDOM_BG_COLOR_RANGE             = [[225, 255], [225, 255], [225, 255
 __C.TRAIN.POLICY                            = 'adam'        # available options: sgd, adam
 __C.TRAIN.DISPNET_LEARNING_RATE             = 1e-4
 __C.TRAIN.ENCODER_LEARNING_RATE             = 1e-4
+__C.TRAIN.CORRNET_LEARNING_RATE             = 1e-4
 __C.TRAIN.DECODER_LEARNING_RATE             = 1e-4
-__C.TRAIN.FUSNET_LEARNING_RATE              = 1e-4
 __C.TRAIN.DISPNET_LR_MILESTONES             = [300]
 __C.TRAIN.ENCODER_LR_MILESTONES             = [300]
+__C.TRAIN.CORRNET_LR_MILESTONES             = [300]
 __C.TRAIN.DECODER_LR_MILESTONES             = [300]
-__C.TRAIN.FUSNET_LR_MILESTONES              = [300]
 __C.TRAIN.BETAS                             = (.9, .999)
 __C.TRAIN.MOMENTUM                          = .9
 __C.TRAIN.GAMMA                             = .5

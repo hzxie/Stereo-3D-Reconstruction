@@ -20,13 +20,13 @@ from datetime import datetime as dt
 from tensorboardX import SummaryWriter
 from time import time
 
+from models.corrnet import CorrelationNet
 from models.dispnet import DispNet
-from models.fusnet import FusionNet
 from models.encoder import Encoder
 from models.decoder import Decoder
 
 def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
-        test_writer=None, dispnet=None, encoder=None, decoder=None, fusnet=None):
+        test_writer=None, dispnet=None, encoder=None, decoder=None, corrnet=None):
     # Enable the inbuilt cudnn auto-tuner to find the best algorithm to use
     torch.backends.cudnn.benchmark = True
 
@@ -58,17 +58,17 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             shuffle=False)
 
     # Set up networks
-    if dispnet is None or encoder is None or decoder is None or fusnet is None:
+    if dispnet is None or encoder is None or decoder is None or corrnet is None:
         dispnet = DispNet(cfg)
         encoder = Encoder(cfg)
         decoder = Decoder(cfg)
-        fusnet = FusionNet(cfg)
+        corrnet = FusionNet(cfg)
 
         if torch.cuda.is_available():
             dispnet = torch.nn.DataParallel(dispnet).cuda()
             encoder = torch.nn.DataParallel(encoder).cuda()
             decoder = torch.nn.DataParallel(decoder).cuda()
-            fusnet = torch.nn.DataParallel(fusnet).cuda()
+            corrnet = torch.nn.DataParallel(corrnet).cuda()
 
         print('[INFO] %s Loading weights from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
         checkpoint = torch.load(cfg.CONST.WEIGHTS)
@@ -76,7 +76,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
         dispnet.load_state_dict(checkpoint['dispnet_state_dict'])
         encoder.load_state_dict(checkpoint['encoder_state_dict'])
         decoder.load_state_dict(checkpoint['decoder_state_dict'])
-        fusnet.load_state_dict(checkpoint['fusnet_state_dict'])
+        corrnet.load_state_dict(checkpoint['corrnet_state_dict'])
 
     # Set up loss functions
     mse_loss = torch.nn.MSELoss()
@@ -92,7 +92,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     dispnet.eval()
     encoder.eval()
     decoder.eval()
-    fusnet.eval()
+    corrnet.eval()
 
     for sample_idx, (taxonomy_id, sample_name, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image,
                      ground_truth_volume) in enumerate(test_data_loader):
@@ -112,10 +112,10 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             left_rgbd_image = torch.cat((left_rgb_image, left_disp_estimated), dim=1)
             right_rgbd_image = torch.cat((right_rgb_image, right_disp_estimated), dim=1)
 
-            left_img_features = encoder(left_rgbd_image)
-            right_img_features = encoder(right_rgbd_image)
-            fusnet_features = fusnet(left_rgbd_image, right_rgbd_image, disp_features)
-            generated_volume = decoder(left_img_features, right_img_features, fusnet_features)
+            left_img_features, left_ll_features = encoder(left_rgbd_image)
+            right_img_features, right_ll_features = encoder(right_rgbd_image)
+            corr_features = corrnet(left_ll_features, right_ll_features)
+            generated_volumes = decoder(left_img_features, right_img_features, corr_features)
 
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_image) + \
@@ -146,13 +146,13 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
                 # Volume Visualization
                 img_dir = output_dir % 'images'
                 test_writer.add_image('Test Sample#%02d/Left Disparity Estimated' % sample_idx,
-                                      left_disp_estimated / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
+                                      left_disp_estimated / cfg.DATASET.MAX_DISP_VALUE, epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Left Disparity GroundTruth' % sample_idx,
-                                      left_disp_image / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
+                                      left_disp_image / cfg.DATASET.MAX_DISP_VALUE, epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Right Disparity Estimated' % sample_idx,
-                                      right_disp_estimated / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
+                                      right_disp_estimated / cfg.DATASET.MAX_DISP_VALUE, epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Right Disparity GroundTruth' % sample_idx,
-                                      right_disp_image / cfg.DATASET.DISP_NORM_FACTOR, epoch_idx)
+                                      right_disp_image / cfg.DATASET.MAX_DISP_VALUE, epoch_idx)
 
                 gv = generated_volume.cpu().numpy()
                 rendering_views = utils.binvox_visualization.get_volume_views(gv, os.path.join(img_dir, 'test'),
