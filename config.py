@@ -26,7 +26,7 @@ __C.DATASET                                 = edict()
 __C.DATASET.DATASET_NAME                    = 'ShapeNet'
 __C.DATASET.IMG_MEAN                        = [0.5, 0.5, 0.5]
 __C.DATASET.IMG_STD                         = [255, 255, 255]
-__C.DATASET.MAX_DISP_VALUE                  = 20
+__C.DATASET.MAX_DISP_VALUE                  = 24
 
 #
 # Common
