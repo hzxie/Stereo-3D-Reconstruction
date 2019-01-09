@@ -14,11 +14,9 @@ class CorrelationNet(torch.nn.Module):
 
         # Layer Definition
         self.conv1 = torch.nn.Sequential(
-            torch.nn.Conv3d(512, 256, kernel_size=1),
-            torch.nn.BatchNorm3d(256),
-            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE),
-            torch.nn.Conv3d(256, 128, kernel_size=1),
-            torch.nn.BatchNorm3d(128)
+            torch.nn.Conv3d(512, 128, kernel_size=1),
+            torch.nn.BatchNorm3d(128),
+            torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
 
         self.conv2a = torch.nn.Sequential(

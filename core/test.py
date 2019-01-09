@@ -62,7 +62,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
         dispnet = DispNet(cfg)
         encoder = Encoder(cfg)
         decoder = Decoder(cfg)
-        corrnet = FusionNet(cfg)
+        corrnet = CorrelationNet(cfg)
 
         if torch.cuda.is_available():
             dispnet = torch.nn.DataParallel(dispnet).cuda()
