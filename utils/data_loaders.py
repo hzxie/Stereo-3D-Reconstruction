@@ -31,8 +31,8 @@ class DatasetType(Enum):
 class ShapeNetDataset(torch.utils.data.dataset.Dataset):
     """ShapeNetDataset class used for PyTorch DataLoader"""
 
-    def __init__(self, file_list_with_metadata, transforms=None):
-        self.file_list = file_list_with_metadata
+    def __init__(self, file_list, transforms=None):
+        self.file_list = file_list
         self.transforms = transforms
 
     def __len__(self):

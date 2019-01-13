@@ -54,7 +54,8 @@ def train_net(cfg):
         batch_size=cfg.CONST.BATCH_SIZE,
         num_workers=cfg.TRAIN.NUM_WORKER,
         pin_memory=True,
-        shuffle=True)
+        shuffle=True,
+        drop_last=True)
     val_data_loader = torch.utils.data.DataLoader(
         dataset=dataset_loader.get_dataset(utils.data_loaders.DatasetType.VAL, cfg.CONST.N_VIEWS, val_transforms),
         batch_size=1,
@@ -196,11 +197,6 @@ def train_net(cfg):
             # Measure data time
             data_time.update(time() - batch_end_time)
 
-            n_samples = len(ground_truth_volumes)
-            # Ignore imcomplete batches at the end of each epoch
-            if not n_samples == cfg.CONST.BATCH_SIZE:
-                continue
-
             # Put it to GPU if CUDA is available
             left_rgb_images = utils.network_utils.var_or_cuda(left_rgb_images)
             right_rgb_images = utils.network_utils.var_or_cuda(right_rgb_images)
@@ -257,8 +253,8 @@ def train_net(cfg):
         # Tick / tock
         epoch_end_time = time()
         print('[INFO] %s Epoch [%d/%d] EpochTime = %.3f (s) DLoss = %.4f VLoss = %.4f' %
-              (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, epoch_end_time - epoch_start_time, 
-                disparity_losses.avg, voxel_losses.avg))
+              (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, epoch_end_time - epoch_start_time, disparity_losses.avg,
+               voxel_losses.avg))
 
         # Validate the training models
         iou = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, encoder, decoder, corrnet)
