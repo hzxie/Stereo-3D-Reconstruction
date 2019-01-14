@@ -19,7 +19,7 @@ from tensorboardX import SummaryWriter
 from time import time
 
 from core.test import test_net
-from metrics.chamfer_distance import ChamferDistance
+from extensions.chamfer_dist import ChamferDistance
 from models.corrnet import CorrelationNet
 from models.dispnet import DispNet
 from models.encoder import Encoder
@@ -142,7 +142,7 @@ def train_net(cfg):
 
     # Load pretrained model if exists
     init_epoch = 0
-    best_cd = 1
+    best_cd = 100
     best_epoch = -1
     if 'WEIGHTS' in cfg.CONST and cfg.TRAIN.RESUME_TRAIN:
         print('[INFO] %s Recovering from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
@@ -220,7 +220,7 @@ def train_net(cfg):
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_images) + \
                              mse_loss(right_disp_estimated, right_disp_images)
-            pt_cloud_loss = chamfer_distance(generated_ptclouds, ground_ptclouds)
+            pt_cloud_loss = chamfer_distance(generated_ptclouds, ground_ptclouds) * 1000
 
             # Gradient decent
             dispnet.zero_grad()

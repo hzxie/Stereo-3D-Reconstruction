@@ -20,7 +20,7 @@ from datetime import datetime as dt
 from tensorboardX import SummaryWriter
 from time import time
 
-from metrics.chamfer_distance import ChamferDistance
+from extensions.chamfer_dist import ChamferDistance
 from models.corrnet import CorrelationNet
 from models.dispnet import DispNet
 from models.encoder import Encoder
@@ -122,7 +122,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_image) + \
                              mse_loss(right_disp_estimated, right_disp_image)
-            pt_cloud_loss = chamfer_distance(generated_ptcloud, ground_ptcloud)
+            pt_cloud_loss = chamfer_distance(generated_ptcloud, ground_ptcloud) * 1000
 
             # Append loss and accuracy to average metrics
             disparity_losses.update(disparity_loss.item())
@@ -155,7 +155,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     # Output testing results
     mean_cd = []
     for taxonomy_id in test_cd:
-        mean_cd.append(test_cd[taxonomy_id]['cd'] * test_cd[taxonomy_id]['n_samples'])
+        mean_cd.append(np.mean(test_cd[taxonomy_id]['cd']) * test_cd[taxonomy_id]['n_samples'])
     mean_cd = np.sum(mean_cd) / n_samples
 
     # Print header
