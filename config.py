@@ -17,7 +17,7 @@ __C.DATASETS.SHAPENET.LEFT_RENDERING_PATH   = '/home/hzxie/Datasets/ShapeNet/Sha
 __C.DATASETS.SHAPENET.RIGHT_RENDERING_PATH  = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/render_%02d_r.png'
 __C.DATASETS.SHAPENET.LEFT_DISP_PATH        = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/disp_%02d_l.exr'
 __C.DATASETS.SHAPENET.RIGHT_DISP_PATH       = '/home/hzxie/Datasets/ShapeNet/ShapeNetStereoRendering/%s/%s/disp_%02d_r.exr'
-__C.DATASETS.SHAPENET.VOLUME_PATH           = '/home/hzxie/Datasets/ShapeNet/ShapeNetVox32/%s/%s.mat'
+__C.DATASETS.SHAPENET.PT_CLOUD_PATH         = '/home/hzxie/Datasets/ShapeNet/ShapeNetPoints/%s/%s.npy'
 
 #
 # Dataset
@@ -56,6 +56,7 @@ __C.DIR.RANDOM_BG_PATH                      = '/home/hzxie/Datasets/SUN2012/JPEG
 #
 __C.NETWORK                                 = edict()
 __C.NETWORK.LEAKY_VALUE                     = .2
+__C.NETWORK.N_POINTS                        = 1024
 
 #
 # Training

@@ -19,6 +19,7 @@ from tensorboardX import SummaryWriter
 from time import time
 
 from core.test import test_net
+from metrics.chamfer_distance import ChamferDistance
 from models.corrnet import CorrelationNet
 from models.dispnet import DispNet
 from models.encoder import Encoder
@@ -39,12 +40,14 @@ def train_net(cfg):
         utils.data_transforms.RandomFlip(),
         utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD),
         utils.data_transforms.ToTensor(),
+        utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS),
     ])
     val_transforms = utils.data_transforms.Compose([
         utils.data_transforms.RandomBackground(cfg.TEST.RANDOM_BG_COLOR_RANGE),
         utils.data_transforms.CenterCrop(IMG_SIZE, CROP_SIZE),
         utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD),
         utils.data_transforms.ToTensor(),
+        utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS),
     ])
 
     # Set up data loader
@@ -135,17 +138,17 @@ def train_net(cfg):
 
     # Set up loss functions
     mse_loss = torch.nn.MSELoss()
-    bce_loss = torch.nn.BCELoss()
+    chamfer_distance = ChamferDistance()
 
     # Load pretrained model if exists
     init_epoch = 0
-    best_iou = -1
+    best_cd = 1
     best_epoch = -1
     if 'WEIGHTS' in cfg.CONST and cfg.TRAIN.RESUME_TRAIN:
         print('[INFO] %s Recovering from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
         checkpoint = torch.load(cfg.CONST.WEIGHTS)
         init_epoch = checkpoint['epoch_idx']
-        best_iou = checkpoint['best_iou']
+        best_cd = checkpoint['best_cd']
         best_epoch = checkpoint['best_epoch']
 
         dispnet.load_state_dict(checkpoint['dispnet_state_dict'])
@@ -157,8 +160,8 @@ def train_net(cfg):
         corrnet.load_state_dict(checkpoint['corrnet_state_dict'])
         corrnet_solver.load_state_dict(checkpoint['corrnet_solver_state_dict'])
 
-        print('[INFO] %s Recover complete. Current epoch #%d, Best IoU = %.4f at epoch #%d.' \
-                 % (dt.now(), init_epoch, best_iou, best_epoch))
+        print('[INFO] %s Recover complete. Current epoch #%d, Best Chamfer Distance = %.4f at epoch #%d.' \
+                 % (dt.now(), init_epoch, best_cd, best_epoch))
 
     # Summary writer for TensorBoard
     output_dir = os.path.join(cfg.DIR.OUT_PATH, '%s', dt.now().isoformat())
@@ -176,7 +179,7 @@ def train_net(cfg):
         batch_time = utils.network_utils.AverageMeter()
         data_time = utils.network_utils.AverageMeter()
         disparity_losses = utils.network_utils.AverageMeter()
-        voxel_losses = utils.network_utils.AverageMeter()
+        pt_cloud_losses = utils.network_utils.AverageMeter()
 
         # Adjust learning rate
         dispnet_lr_scheduler.step()
@@ -193,7 +196,7 @@ def train_net(cfg):
         batch_end_time = time()
         n_batches = len(train_data_loader)
         for batch_idx, (taxonomy_ids, sample_names, left_rgb_images, right_rgb_images, left_disp_images,
-                        right_disp_images, ground_truth_volumes) in enumerate(train_data_loader):
+                        right_disp_images, ground_ptclouds) in enumerate(train_data_loader):
             # Measure data time
             data_time.update(time() - batch_end_time)
 
@@ -202,7 +205,7 @@ def train_net(cfg):
             right_rgb_images = utils.network_utils.var_or_cuda(right_rgb_images)
             left_disp_images = utils.network_utils.var_or_cuda(left_disp_images)
             right_disp_images = utils.network_utils.var_or_cuda(right_disp_images)
-            ground_truth_volumes = utils.network_utils.var_or_cuda(ground_truth_volumes)
+            ground_ptclouds = utils.network_utils.var_or_cuda(ground_ptclouds)
 
             # Train the DispNet and RecNet
             left_disp_estimated, right_disp_estimated, disp_features = dispnet(left_rgb_images, right_rgb_images)
@@ -212,12 +215,12 @@ def train_net(cfg):
             left_img_features, left_ll_features = encoder(left_rgbd_images)
             right_img_features, right_ll_features = encoder(right_rgbd_images)
             corr_features = corrnet(left_ll_features, right_ll_features)
-            generated_volumes = decoder(left_img_features, right_img_features, corr_features)
+            generated_ptclouds = decoder(left_img_features, right_img_features, corr_features)
 
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_images) + \
                              mse_loss(right_disp_estimated, right_disp_images)
-            voxel_loss = bce_loss(generated_volumes, ground_truth_volumes)
+            pt_cloud_loss = chamfer_distance(generated_ptclouds, ground_ptclouds)
 
             # Gradient decent
             dispnet.zero_grad()
@@ -225,7 +228,7 @@ def train_net(cfg):
             decoder.zero_grad()
             corrnet.zero_grad()
             disparity_loss.backward(retain_graph=True)
-            voxel_loss.backward()
+            pt_cloud_loss.backward()
             dispnet_solver.step()
             encoder_solver.step()
             decoder_solver.step()
@@ -233,31 +236,31 @@ def train_net(cfg):
 
             # Append loss to average metrics
             disparity_losses.update(disparity_loss.item())
-            voxel_losses.update(voxel_loss.item())
+            pt_cloud_losses.update(pt_cloud_loss.item())
             # Append loss to TensorBoard
             n_itr = epoch_idx * n_batches + batch_idx
             train_writer.add_scalar('DispNet/BatchLoss', disparity_loss.item(), n_itr)
-            train_writer.add_scalar('RecNet/BatchLoss', voxel_loss.item(), n_itr)
+            train_writer.add_scalar('RecNet/BatchLoss', pt_cloud_loss.item(), n_itr)
 
             # Tick / tock
             batch_time.update(time() - batch_end_time)
             batch_end_time = time()
-            print('[INFO] %s [Epoch %d/%d][Batch %d/%d] BatchTime = %.3f (s) DataTime = %.3f (s) DLoss = %.4f VLoss = %.4f' % \
+            print('[INFO] %s [Epoch %d/%d][Batch %d/%d] BatchTime = %.3f (s) DataTime = %.3f (s) DLoss = %.4f PTLoss = %.4f' % \
                 (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, batch_idx + 1, n_batches, \
-                    batch_time.val, data_time.val, disparity_loss.item(), voxel_loss.item()))
+                    batch_time.val, data_time.val, disparity_loss.item(), pt_cloud_loss.item()))
 
         # Append epoch loss to TensorBoard
         train_writer.add_scalar('DispNet/EpochLoss', disparity_losses.avg, epoch_idx + 1)
-        train_writer.add_scalar('RecNet/EpochLoss', voxel_losses.avg, epoch_idx + 1)
+        train_writer.add_scalar('RecNet/EpochLoss', pt_cloud_losses.avg, epoch_idx + 1)
 
         # Tick / tock
         epoch_end_time = time()
-        print('[INFO] %s Epoch [%d/%d] EpochTime = %.3f (s) DLoss = %.4f VLoss = %.4f' %
+        print('[INFO] %s Epoch [%d/%d] EpochTime = %.3f (s) DLoss = %.4f PTLoss = %.4f' %
               (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, epoch_end_time - epoch_start_time, disparity_losses.avg,
-               voxel_losses.avg))
+               pt_cloud_losses.avg))
 
         # Validate the training models
-        iou = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, encoder, decoder, corrnet)
+        cd = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, encoder, decoder, corrnet)
 
         # Save weights to file
         if (epoch_idx + 1) % cfg.TRAIN.SAVE_FREQ == 0:
@@ -267,17 +270,17 @@ def train_net(cfg):
             utils.network_utils.save_checkpoints(cfg, \
                     os.path.join(ckpt_dir, 'ckpt-epoch-%04d.pth.tar' % (epoch_idx + 1)), \
                     epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver, \
-                    decoder, decoder_solver, corrnet, corrnet_solver, best_iou, best_epoch)
-        if iou > best_iou:
+                    decoder, decoder_solver, corrnet, corrnet_solver, best_cd, best_epoch)
+        if cd < best_cd:
             if not os.path.exists(ckpt_dir):
                 os.makedirs(ckpt_dir)
 
-            best_iou = iou
+            best_cd = cd
             best_epoch = epoch_idx + 1
             utils.network_utils.save_checkpoints(cfg, \
                     os.path.join(ckpt_dir, 'best-ckpt.pth.tar'), \
                     epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver, \
-                    decoder, decoder_solver, corrnet, corrnet_solver, best_iou, best_epoch)
+                    decoder, decoder_solver, corrnet, corrnet_solver, best_cd, best_epoch)
 
     # Close SummaryWriter for TensorBoard
     train_writer.close()

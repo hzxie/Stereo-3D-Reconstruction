@@ -25,12 +25,15 @@ class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image):
+    def __call__(self, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image, ptcloud):
         for t in self.transforms:
-            left_rgb_image, right_rgb_image, left_disp_image, right_disp_image = t(
-                left_rgb_image, right_rgb_image, left_disp_image, right_disp_image)
+            if t.__class__.__name__ == 'RandomSamplePoints':
+                ptcloud = t(ptcloud)
+            else:
+                left_rgb_image, right_rgb_image, left_disp_image, right_disp_image = t(
+                    left_rgb_image, right_rgb_image, left_disp_image, right_disp_image)
 
-        return left_rgb_image, right_rgb_image, left_disp_image, right_disp_image
+        return left_rgb_image, right_rgb_image, left_disp_image, right_disp_image, ptcloud
 
 
 class ToTensor(object):
@@ -177,3 +180,12 @@ class RandomBackground(object):
         img = alpha * bg_color + (1 - alpha) * img
 
         return img
+
+
+class RandomSamplePoints(object):
+    def __init__(self, n_points):
+        self.n_points = n_points
+
+    def __call__(self, ptcloud):
+        choice = np.random.choice(len(ptcloud), self.n_points, replace=False)
+        return ptcloud[choice, :]

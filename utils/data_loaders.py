@@ -8,7 +8,6 @@ import numpy as np
 import os
 import pyexr
 import random
-import scipy.io
 import sys
 import torch.utils.data.dataset
 
@@ -40,13 +39,13 @@ class ShapeNetDataset(torch.utils.data.dataset.Dataset):
 
     def __getitem__(self, idx):
         taxonomy_name, sample_name, left_rgb_image, right_rgb_image, \
-            left_disp_image, right_disp_image, volume = self.get_datum(idx)
+            left_disp_image, right_disp_image, ptcloud = self.get_datum(idx)
 
         if self.transforms:
-            left_rgb_image, right_rgb_image, left_disp_image, right_disp_image = self.transforms(
-                left_rgb_image, right_rgb_image, left_disp_image, right_disp_image)
+            left_rgb_image, right_rgb_image, left_disp_image, right_disp_image, ptcloud = self.transforms(
+                left_rgb_image, right_rgb_image, left_disp_image, right_disp_image, ptcloud)
 
-        return taxonomy_name, sample_name, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image, volume
+        return taxonomy_name, sample_name, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image, ptcloud
 
     def get_datum(self, idx):
         taxonomy_name = self.file_list[idx]['taxonomy_name']
@@ -55,7 +54,7 @@ class ShapeNetDataset(torch.utils.data.dataset.Dataset):
         right_rgb_images_file_path = self.file_list[idx]['right_rgb_images']
         left_disp_images_file_path = self.file_list[idx]['left_disp_images']
         right_disp_images_file_path = self.file_list[idx]['right_disp_images']
-        volume_path = self.file_list[idx]['volume']
+        ptcloud_path = self.file_list[idx]['ptcloud']
 
         # Get data of rendering images
         selected_index = random.choice(range(len(left_rgb_images_file_path)))
@@ -69,14 +68,10 @@ class ShapeNetDataset(torch.utils.data.dataset.Dataset):
         left_disp_image = pyexr.open(left_disp_image_file_path).get("Disparity.Z").astype(np.float32)
         right_disp_image = pyexr.open(right_disp_image_file_path).get("Disparity.Z").astype(np.float32)
 
-        # Get data of voxel
-        volume = scipy.io.loadmat(volume_path)
-        if not volume:
-            print('[FATAL] %s Failed to get volume data from file %s' % (dt.now(), volume_path))
-            sys.exit(2)
+        # Get data of point cloud
+        ptcloud = np.load(ptcloud_path).astype(np.float32)
 
-        volume = volume['Volume'].astype(np.float32)
-        return taxonomy_name, sample_name, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image, volume
+        return taxonomy_name, sample_name, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image, ptcloud
 
 
 # //////////////////////////////// = End of ShapeNetDataset Class Definition = ///////////////////////////////// #
@@ -89,7 +84,7 @@ class ShapeNetDataLoader:
         self.right_rgb_image_path_template = cfg.DATASETS.SHAPENET.RIGHT_RENDERING_PATH
         self.left_disp_image_path_template = cfg.DATASETS.SHAPENET.LEFT_DISP_PATH
         self.right_disp_image_path_template = cfg.DATASETS.SHAPENET.RIGHT_DISP_PATH
-        self.volume_path_template = cfg.DATASETS.SHAPENET.VOLUME_PATH
+        self.pt_cloud_path_template = cfg.DATASETS.SHAPENET.PT_CLOUD_PATH
 
         # Load all taxonomies of the dataset
         with open(cfg.DATASETS.SHAPENET.TAXONOMY_FILE_PATH, encoding='utf-8') as file:
@@ -122,9 +117,9 @@ class ShapeNetDataLoader:
 
         for sample_idx, sample_name in enumerate(samples):
             # Get file path of voxels
-            volume_file_path = self.volume_path_template % (taxonomy_folder_name, sample_name)
-            if not os.path.exists(volume_file_path):
-                print('[WARN] %s Ignore sample %s/%s since voxel file not exists.' % (dt.now(), taxonomy_folder_name,
+            ptcloud_file_path = self.pt_cloud_path_template % (taxonomy_folder_name, sample_name)
+            if not os.path.exists(ptcloud_file_path):
+                print('[WARN] %s Ignore sample %s/%s since points file not exists.' % (dt.now(), taxonomy_folder_name,
                                                                                       sample_name))
                 continue
 
@@ -156,7 +151,7 @@ class ShapeNetDataLoader:
                 'right_rgb_images': right_rgb_images_file_path,
                 'left_disp_images': left_disp_images_file_path,
                 'right_disp_images': right_disp_images_file_path,
-                'volume': volume_file_path
+                'ptcloud': ptcloud_file_path
             })
 
             # Report the progress of reading dataset
