@@ -31,6 +31,7 @@ class ChamferDistance(torch.nn.Module):
 
     def forward(self, x, y):
         dist = self._batch_pairwise_dist(x, y)
+
         dist1, _ = dist.min(dim=1)
         dist2, _ = dist.min(dim=2)
 

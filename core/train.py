@@ -9,7 +9,6 @@ import torch
 import torch.backends.cudnn
 import torch.utils.data
 
-import utils.binvox_visualization
 import utils.data_loaders
 import utils.data_transforms
 import utils.network_utils

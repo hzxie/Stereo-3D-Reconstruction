@@ -11,7 +11,7 @@ import torch.backends.cudnn
 import torch.utils.data
 import torchvision.transforms
 
-import utils.binvox_visualization
+import utils.visualization
 import utils.data_loaders
 import utils.data_transforms
 import utils.network_utils
@@ -137,6 +137,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
 
             # Append generated volumes to TensorBoard
             if output_dir and sample_idx < 3:
+                img_dir = output_dir % 'images'
                 # Disparity Map Visualization
                 test_writer.add_image('Test Sample#%02d/Left Disparity Estimated' % sample_idx,
                                       left_disp_estimated / cfg.DATASET.MAX_DISP_VALUE, epoch_idx)
@@ -146,6 +147,13 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
                                       right_disp_estimated / cfg.DATASET.MAX_DISP_VALUE, epoch_idx)
                 test_writer.add_image('Test Sample#%02d/Right Disparity GroundTruth' % sample_idx,
                                       right_disp_image / cfg.DATASET.MAX_DISP_VALUE, epoch_idx)
+                # Point Cloud Visualization
+                gpt = generated_ptcloud.squeeze().cpu().numpy()
+                rendering_views = utils.visualization.get_ptcloud_views(gpt, os.path.join(img_dir, 'test'), epoch_idx)
+                test_writer.add_image('Test Sample#%02d/Points Reconstructed' % sample_idx, rendering_views, epoch_idx)
+                gt = ground_ptcloud.squeeze().cpu().numpy()
+                rendering_views = utils.visualization.get_ptcloud_views(gt, os.path.join(img_dir, 'test'), epoch_idx)
+                test_writer.add_image('Test Sample#%02d/Points GroundTruth' % sample_idx, rendering_views, epoch_idx)
 
             # Print sample loss and Chamfer Distance
             print('[INFO] %s Test[%d/%d] Taxonomy = %s Sample = %s DLoss = %.4f PTLoss = %.4f' % \
@@ -176,6 +184,5 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
     if not test_writer is None:
         test_writer.add_scalar('DispNet/EpochLoss', disparity_losses.avg, epoch_idx)
         test_writer.add_scalar('RecNet/EpochLoss', pt_cloud_losses.avg, epoch_idx)
-        test_writer.add_scalar('RecNet/CD', mean_cd, epoch_idx)
 
     return mean_cd
