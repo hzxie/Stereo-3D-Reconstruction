@@ -90,7 +90,7 @@ class Encoder(torch.nn.Module):
 
     def forward(self, rgbd_images):
         # print(rgbd_images.size())  # torch.Size([batch_size, 4, 137, 137])
-        features = self.conv1a(rgbd_images.view(-1, self.cfg.CONST.IMG_C, self.cfg.CONST.IMG_H, self.cfg.CONST.IMG_W))
+        features = self.conv1a(rgbd_images)
         # print(features.size())    # torch.Size([batch_size, 96, 137, 137])
         features = self.conv1b(features)
         # print(features.size())    # torch.Size([batch_size, 96, 137, 137])

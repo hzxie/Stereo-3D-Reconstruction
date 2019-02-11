@@ -36,13 +36,11 @@ __C.CONST.DEVICE                            = '0'
 __C.CONST.RNG_SEED                          = 0
 __C.CONST.IMG_W                             = 137       # Image width for input
 __C.CONST.IMG_H                             = 137       # Image height for input
-__C.CONST.IMG_C                             = 4         # Image channels for input
 __C.CONST.N_VOX                             = 32
 __C.CONST.BATCH_SIZE                        = 20
 __C.CONST.N_VIEWS                           = 24
 __C.CONST.CROP_IMG_W                        = 210
 __C.CONST.CROP_IMG_H                        = 210
-__C.CONST.CROP_IMG_C                        = 4
 
 #
 # Directories

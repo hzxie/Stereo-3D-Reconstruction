@@ -30,8 +30,8 @@ def train_net(cfg):
     torch.backends.cudnn.benchmark = True
 
     # Set up data augmentation
-    IMG_SIZE = cfg.CONST.IMG_H, cfg.CONST.IMG_W, cfg.CONST.IMG_C
-    CROP_SIZE = cfg.CONST.CROP_IMG_H, cfg.CONST.CROP_IMG_W, cfg.CONST.CROP_IMG_C
+    IMG_SIZE = cfg.CONST.IMG_H, cfg.CONST.IMG_W
+    CROP_SIZE = cfg.CONST.CROP_IMG_H, cfg.CONST.CROP_IMG_W
     train_transforms = utils.data_transforms.Compose([
         utils.data_transforms.RandomBackground(cfg.TRAIN.RANDOM_BG_COLOR_RANGE),
         utils.data_transforms.RandomCrop(IMG_SIZE, CROP_SIZE),
