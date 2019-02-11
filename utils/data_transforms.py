@@ -121,7 +121,6 @@ class RandomCrop(object):
         self.img_size_w = img_size[1]
         self.crop_size_h = crop_size[0]
         self.crop_size_w = crop_size[1]
-        self.crop_size_c = crop_size[2]
 
     def __call__(self, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image):
         img_width, img_height, _ = left_rgb_image.shape
