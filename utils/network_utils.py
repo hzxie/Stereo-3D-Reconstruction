@@ -30,11 +30,11 @@ def init_weights(m):
 
 
 def save_checkpoints(cfg, file_path, epoch_idx, dispnet, dispnet_solver, encoder, encoder_solver, decoder,
-                     decoder_solver, corrnet, corrnet_solver, best_iou, best_epoch):
+                     decoder_solver, corrnet, corrnet_solver, best_cd, best_epoch):
     print('[INFO] %s Saving checkpoint to %s ...' % (dt.now(), file_path))
     checkpoint = {
         'epoch_idx': epoch_idx,
-        'best_iou': best_iou,
+        'best_cd': best_cd,
         'best_epoch': best_epoch,
         'dispnet_state_dict': dispnet.state_dict(),
         'dispnet_solver_state_dict': dispnet_solver.state_dict(),

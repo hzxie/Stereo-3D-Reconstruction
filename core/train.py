@@ -39,14 +39,14 @@ def train_net(cfg):
         utils.data_transforms.RandomFlip(),
         utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD),
         utils.data_transforms.ToTensor(),
-        utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS),
+        utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS)
     ])
     val_transforms = utils.data_transforms.Compose([
         utils.data_transforms.RandomBackground(cfg.TEST.RANDOM_BG_COLOR_RANGE),
         utils.data_transforms.CenterCrop(IMG_SIZE, CROP_SIZE),
         utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD),
         utils.data_transforms.ToTensor(),
-        utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS),
+        # utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS)
     ])
 
     # Set up data loader
@@ -147,7 +147,7 @@ def train_net(cfg):
         print('[INFO] %s Recovering from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
         checkpoint = torch.load(cfg.CONST.WEIGHTS)
         init_epoch = checkpoint['epoch_idx']
-        best_cd = checkpoint['best_cd']
+        # best_cd = checkpoint['best_cd']
         best_epoch = checkpoint['best_epoch']
 
         dispnet.load_state_dict(checkpoint['dispnet_state_dict'])
@@ -219,7 +219,8 @@ def train_net(cfg):
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_images) + \
                              mse_loss(right_disp_estimated, right_disp_images)
-            pt_cloud_loss = chamfer_distance(generated_ptclouds, ground_ptclouds) * 1000
+            dist1, dist2 = chamfer_distance(generated_ptclouds, ground_ptclouds)
+            pt_cloud_loss = (torch.mean(dist1) + torch.mean(dist2)) * 1000
 
             # Gradient decent
             dispnet.zero_grad()

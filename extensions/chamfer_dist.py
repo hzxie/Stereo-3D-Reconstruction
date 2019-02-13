@@ -1,38 +1,52 @@
 # -*- coding: utf-8 -*-
 #
-# Developed by Haozhe Xie <cshzxie@gmail.com>
-#
-# References:
-# - https://discuss.pytorch.org/t/fastest-way-to-find-nearest-neighbor-for-a-set-of-points/5938/12
-# - https://github.com/ThibaultGROUEIX/AtlasNet/blob/master/training/train_AE_AtlasNet.py#L41-L65
+# Developed by Thibault GROUEIX <thibault.groueix.2012@polytechnique.org>
 
+import sys
 import torch
 
-import utils.network_utils
+import chamfer
+
+
+class ChamferFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, xyz1, xyz2):
+        batchsize, n, _ = xyz1.size()
+        _, m, _ = xyz2.size()
+
+        dist1 = torch.zeros(batchsize, n)
+        dist2 = torch.zeros(batchsize, m)
+
+        idx1 = torch.zeros(batchsize, n).type(torch.IntTensor)
+        idx2 = torch.zeros(batchsize, m).type(torch.IntTensor)
+
+        dist1 = dist1.cuda()
+        dist2 = dist2.cuda()
+        idx1 = idx1.cuda()
+        idx2 = idx2.cuda()
+
+        chamfer.forward(xyz1, xyz2, dist1, dist2, idx1, idx2)
+        ctx.save_for_backward(xyz1, xyz2, idx1, idx2)
+        return dist1, dist2
+
+    @staticmethod
+    def backward(ctx, graddist1, graddist2):
+        xyz1, xyz2, idx1, idx2 = ctx.saved_tensors
+        graddist1 = graddist1.contiguous()
+        graddist2 = graddist2.contiguous()
+
+        gradxyz1 = torch.zeros(xyz1.size())
+        gradxyz2 = torch.zeros(xyz2.size())
+
+        gradxyz1 = gradxyz1.cuda()
+        gradxyz2 = gradxyz2.cuda()
+        chamfer.backward(xyz1, xyz2, gradxyz1, gradxyz2, graddist1, graddist2, idx1, idx2)
+        return gradxyz1, gradxyz2
 
 
 class ChamferDistance(torch.nn.Module):
     def __init__(self):
         super(ChamferDistance, self).__init__()
 
-    def _batch_pairwise_dist(self, x, y):
-        bs, n_points, _ = x.size()
-
-        xx = torch.bmm(x, x.transpose(2, 1))
-        yy = torch.bmm(y, y.transpose(2, 1))
-        xy = torch.bmm(x, y.transpose(2, 1))
-
-        diag_ind = torch.arange(0, n_points).type(torch.LongTensor)
-        diag_ind = utils.network_utils.var_or_cuda(diag_ind)
-        rx = xx[:, diag_ind, diag_ind].unsqueeze(1).expand_as(xx)
-        ry = yy[:, diag_ind, diag_ind].unsqueeze(1).expand_as(yy)
-
-        return rx.transpose(2, 1) + ry - 2 * xy
-
-    def forward(self, x, y):
-        dist = self._batch_pairwise_dist(x, y)
-
-        dist1, _ = dist.min(dim=1)
-        dist2, _ = dist.min(dim=2)
-
-        return torch.mean(dist1) + torch.mean(dist2)
+    def forward(self, input1, input2):
+        return ChamferFunction.apply(input1, input2)

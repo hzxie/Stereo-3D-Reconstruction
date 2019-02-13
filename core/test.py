@@ -47,7 +47,7 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             utils.data_transforms.CenterCrop(IMG_SIZE, CROP_SIZE),
             utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD),
             utils.data_transforms.ToTensor(),
-            utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS),
+            # utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS)
         ])
 
         dataset_loader = utils.data_loaders.DATASET_LOADER_MAPPING[cfg.DATASET.DATASET_NAME](cfg)
@@ -122,7 +122,8 @@ def test_net(cfg, epoch_idx=-1, output_dir=None, test_data_loader=None, \
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_image) + \
                              mse_loss(right_disp_estimated, right_disp_image)
-            pt_cloud_loss = chamfer_distance(generated_ptcloud, ground_ptcloud) * 1000
+            dist1, dist2 = chamfer_distance(generated_ptcloud, ground_ptcloud)
+            pt_cloud_loss = (torch.mean(dist1) + torch.mean(dist2)) * 1000
 
             # Append loss and accuracy to average metrics
             disparity_losses.update(disparity_loss.item())
