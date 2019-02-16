@@ -147,7 +147,7 @@ def train_net(cfg):
         print('[INFO] %s Recovering from %s ...' % (dt.now(), cfg.CONST.WEIGHTS))
         checkpoint = torch.load(cfg.CONST.WEIGHTS)
         init_epoch = checkpoint['epoch_idx']
-        # best_cd = checkpoint['best_cd']
+        best_cd = checkpoint['best_cd']
         best_epoch = checkpoint['best_epoch']
 
         dispnet.load_state_dict(checkpoint['dispnet_state_dict'])

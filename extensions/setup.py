@@ -9,7 +9,7 @@ setup(
     name='chamfer',
     version='1.0.0',
     ext_modules=[
-        CUDAExtension('chamfer_dist', [
+        CUDAExtension('chamfer', [
             'chamfer_cuda.cpp',
             'chamfer.cu',
         ]),
