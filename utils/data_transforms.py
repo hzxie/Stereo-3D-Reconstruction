@@ -186,5 +186,9 @@ class RandomSamplePoints(object):
         self.n_points = n_points
 
     def __call__(self, ptcloud):
-        choice = np.random.choice(len(ptcloud), self.n_points, replace=False)
+        if len(ptcloud) < self.n_points:
+            choice = np.random.choice(len(ptcloud), self.n_points, replace=True)
+        else:
+            choice = np.random.choice(len(ptcloud), self.n_points, replace=False)
+        
         return ptcloud[choice, :]
