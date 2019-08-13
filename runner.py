@@ -77,7 +77,7 @@ def main():
 if __name__ == '__main__':
     # Check python version
     if sys.version_info < (3, 0):
-        raise Exception("Please follow the installation instruction on 'https://github.com/hzxie/Stereo2Voxel'")
+        raise Exception("Please follow the installation instruction on 'https://github.com/hzxie/Stereo-3D-Reconstruction'")
 
     # Setup logger
     mp.log_to_stderr()

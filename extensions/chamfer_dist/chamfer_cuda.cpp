@@ -39,6 +39,6 @@ int chamfer_backward(at::Tensor xyz1,
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("forward", &chamfer_forward, "chamfer forward (CUDA)");
-  m.def("backward", &chamfer_backward, "chamfer backward (CUDA)");
+  m.def("forward", &chamfer_forward, "Chamfer forward (CUDA)");
+  m.def("backward", &chamfer_backward, "Chamfer backward (CUDA)");
 }
