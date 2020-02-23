@@ -122,8 +122,7 @@ def test_net(cfg,
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_image) + \
                              mse_loss(right_disp_estimated, right_disp_image)
-            dist1, dist2 = chamfer_distance(generated_ptcloud, ground_ptcloud)
-            pt_cloud_loss = (torch.mean(dist1) + torch.mean(dist2)) * 1000
+            pt_cloud_loss = chamfer_distance(generated_ptcloud, ground_ptcloud) * 1000
 
             # Append loss and accuracy to average metrics
             disparity_losses.update(disparity_loss.item())

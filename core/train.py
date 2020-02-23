@@ -173,12 +173,6 @@ def train_net(cfg):
         disparity_losses = utils.network_utils.AverageMeter()
         pt_cloud_losses = utils.network_utils.AverageMeter()
 
-        # Adjust learning rate
-        dispnet_lr_scheduler.step()
-        encoder_lr_scheduler.step()
-        decoder_lr_scheduler.step()
-        corrnet_lr_scheduler.step()
-
         # switch models to training mode
         dispnet.train()
         encoder.train()
@@ -212,8 +206,7 @@ def train_net(cfg):
             # Calculate losses for disp estimation and voxel reconstruction
             disparity_loss = mse_loss(left_disp_estimated, left_disp_images) + \
                              mse_loss(right_disp_estimated, right_disp_images)
-            dist1, dist2 = chamfer_distance(generated_ptclouds, ground_ptclouds)
-            pt_cloud_loss = (torch.mean(dist1) + torch.mean(dist2)) * 1000
+            pt_cloud_loss = chamfer_distance(generated_ptclouds, ground_ptclouds) * 1000
 
             # Gradient decent
             dispnet.zero_grad()
@@ -246,6 +239,12 @@ def train_net(cfg):
         # Append epoch loss to TensorBoard
         train_writer.add_scalar('DispNet/EpochLoss', disparity_losses.avg, epoch_idx + 1)
         train_writer.add_scalar('RecNet/EpochLoss', pt_cloud_losses.avg, epoch_idx + 1)
+
+        # Adjust learning rate
+        dispnet_lr_scheduler.step()
+        encoder_lr_scheduler.step()
+        decoder_lr_scheduler.step()
+        corrnet_lr_scheduler.step()
 
         # Tick / tock
         epoch_end_time = time()
