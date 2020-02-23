@@ -15,8 +15,6 @@ import torch.utils.data.dataset
 from datetime import datetime as dt
 from enum import Enum, unique
 
-import utils.binvox_rw
-
 
 @unique
 class DatasetType(Enum):
@@ -30,7 +28,6 @@ class DatasetType(Enum):
 
 class ShapeNetDataset(torch.utils.data.dataset.Dataset):
     """ShapeNetDataset class used for PyTorch DataLoader"""
-
     def __init__(self, file_list_with_metadata, transforms=None):
         self.file_list = file_list_with_metadata
         self.transforms = transforms
@@ -101,8 +98,8 @@ class ShapeNetDataLoader:
         # Load data for each category
         for taxonomy in self.dataset_taxonomy:
             taxonomy_folder_name = taxonomy['taxonomy_id']
-            print('[INFO] %s Collecting files of Taxonomy[ID=%s, Name=%s]' % (dt.now(), taxonomy['taxonomy_id'],
-                                                                              taxonomy['taxonomy_name']))
+            print('[INFO] %s Collecting files of Taxonomy[ID=%s, Name=%s]' %
+                  (dt.now(), taxonomy['taxonomy_id'], taxonomy['taxonomy_name']))
             samples = []
             if dataset_type == DatasetType.TRAIN:
                 samples = taxonomy['train']
@@ -118,14 +115,13 @@ class ShapeNetDataLoader:
 
     def get_files_of_taxonomy(self, taxonomy_folder_name, samples, total_views):
         files_of_taxonomy = []
-        n_samples = len(samples)
 
         for sample_idx, sample_name in enumerate(samples):
             # Get file path of voxels
             volume_file_path = self.volume_path_template % (taxonomy_folder_name, sample_name)
             if not os.path.exists(volume_file_path):
-                print('[WARN] %s Ignore sample %s/%s since voxel file not exists.' % (dt.now(), taxonomy_folder_name,
-                                                                                      sample_name))
+                print('[WARN] %s Ignore sample %s/%s since voxel file not exists.' %
+                      (dt.now(), taxonomy_folder_name, sample_name))
                 continue
 
             # Get file list of rendering images
@@ -136,9 +132,12 @@ class ShapeNetDataLoader:
             right_disp_images_file_path = []
             for image_idx in image_indexes:
                 left_rgb_file_path = self.left_rgb_image_path_template % (taxonomy_folder_name, sample_name, image_idx)
-                right_rgb_file_path = self.right_rgb_image_path_template % (taxonomy_folder_name, sample_name, image_idx)
-                left_disp_file_path = self.left_disp_image_path_template % (taxonomy_folder_name, sample_name, image_idx)
-                right_disp_file_path = self.right_disp_image_path_template % (taxonomy_folder_name, sample_name, image_idx)
+                right_rgb_file_path = self.right_rgb_image_path_template % (taxonomy_folder_name, sample_name,
+                                                                            image_idx)
+                left_disp_file_path = self.left_disp_image_path_template % (taxonomy_folder_name, sample_name,
+                                                                            image_idx)
+                right_disp_file_path = self.right_disp_image_path_template % (taxonomy_folder_name, sample_name,
+                                                                              image_idx)
                 # if not os.path.exists(left_rgb_file_path):
                 #     print('[WARN] %s Ignore rendering image of sample %s/%s/%d since file not exists.' % \
                 #         (dt.now(), taxonomy_folder_name, sample_name, image_idx))
@@ -158,10 +157,6 @@ class ShapeNetDataLoader:
                 'right_disp_images': right_disp_images_file_path,
                 'volume': volume_file_path
             })
-
-            # Report the progress of reading dataset
-            # if sample_idx % 500 == 499 or sample_idx == n_samples - 1:
-            #     print('[INFO] %s Collecting %d of %d' % (dt.now(), sample_idx + 1, n_samples))
 
         return files_of_taxonomy
 

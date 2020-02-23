@@ -84,7 +84,6 @@ class Voxels(object):
     z = scale*z_n + translate[2]
 
     """
-
     def __init__(self, data, dims, translate, scale, axis_order):
         self.data = data
         self.dims = dims
@@ -172,7 +171,7 @@ def read_as_coord_array(fp, fix_coords=True):
 
     values, counts = raw_data[::2], raw_data[1::2]
 
-    sz = np.prod(dims)
+    # sz = np.prod(dims)
     index, end_index = 0, 0
     end_indices = np.cumsum(counts)
     indices = np.concatenate(([0], end_indices[:-1])).astype(end_indices.dtype)
@@ -261,7 +260,7 @@ def write(voxel_model, fp):
     for fh in file_header:
         fp.write(fh.encode('latin-1'))
 
-    if not voxel_model.axis_order in ('xzy', 'xyz'):
+    if voxel_model.axis_order not in ('xzy', 'xyz'):
         raise ValueError('[ERROR] Unsupported voxel model axis order')
 
     if voxel_model.axis_order == 'xzy':

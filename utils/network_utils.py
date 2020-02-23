@@ -2,7 +2,6 @@
 #
 # Developed by Haozhe Xie <cshzxie@gmail.com>
 
-import os
 import torch
 
 from datetime import datetime as dt
@@ -54,7 +53,6 @@ def count_parameters(model):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
-
     def __init__(self):
         self.reset()
 

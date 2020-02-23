@@ -66,7 +66,7 @@ class CorrelationNet(torch.nn.Module):
             torch.nn.Conv3d(32, 1, kernel_size=1),
             torch.nn.BatchNorm3d(1)
         )
-        
+
         self.conv7 = torch.nn.Sequential(
             torch.nn.Conv2d(6, 1, kernel_size=1),
             torch.nn.BatchNorm2d(1),

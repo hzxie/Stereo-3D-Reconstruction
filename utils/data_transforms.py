@@ -3,14 +3,9 @@
 # Developed by Haozhe Xie <cshzxie@gmail.com>
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
-import os
 import random
 import torch
-import torchvision.transforms
-
-from PIL import Image
 
 
 class Compose(object):
@@ -21,14 +16,13 @@ class Compose(object):
     >>>     transforms.CenterCrop(127, 127, 3),
     >>>  ])
     """
-
     def __init__(self, transforms):
         self.transforms = transforms
 
     def __call__(self, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image):
         for t in self.transforms:
-            left_rgb_image, right_rgb_image, left_disp_image, right_disp_image = t(
-                left_rgb_image, right_rgb_image, left_disp_image, right_disp_image)
+            left_rgb_image, right_rgb_image, left_disp_image, right_disp_image = t(left_rgb_image, right_rgb_image,
+                                                                                   left_disp_image, right_disp_image)
 
         return left_rgb_image, right_rgb_image, left_disp_image, right_disp_image
 
@@ -38,7 +32,6 @@ class ToTensor(object):
     Convert a PIL Image or numpy.ndarray to tensor.
     Converts a PIL Image or numpy.ndarray (H x W x C) in the range [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
     """
-
     def __call__(self, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image):
         left_rgb_image = self.to_tensor(left_rgb_image.copy())
         right_rgb_image = self.to_tensor(right_rgb_image.copy())
@@ -121,7 +114,7 @@ class RandomCrop(object):
 
     def __call__(self, left_rgb_image, right_rgb_image, left_disp_image, right_disp_image):
         img_width, img_height, _ = left_rgb_image.shape
-        
+
         x_left = (img_width - self.crop_size_w) * random.random()
         x_right = x_left + self.crop_size_w
         y_top = (img_height - self.crop_size_h) * random.random()
@@ -161,8 +154,7 @@ class RandomBackground(object):
 
         # If the image has the alpha channel, add the background
         r, g, b = [
-            np.random.randint(self.random_bg_color_range[i][0], self.random_bg_color_range[i][1] + 1)
-            for i in range(3)
+            np.random.randint(self.random_bg_color_range[i][0], self.random_bg_color_range[i][1] + 1) for i in range(3)
         ]
         left_rgb_image = self.random_background(left_rgb_image, r, g, b)
         right_rgb_image = self.random_background(right_rgb_image, r, g, b)
