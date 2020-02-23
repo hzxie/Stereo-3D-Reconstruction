@@ -22,7 +22,7 @@ class Encoder(torch.nn.Module):
             torch.nn.LeakyReLU(cfg.NETWORK.LEAKY_VALUE)
         )
         self.pool1 = torch.nn.MaxPool2d(kernel_size=2)
-        
+
         self.conv2a = torch.nn.Sequential(
             torch.nn.Conv2d(96, 128, kernel_size=3, padding=1),
             torch.nn.BatchNorm2d(128),

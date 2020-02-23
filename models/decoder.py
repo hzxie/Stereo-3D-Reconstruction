@@ -8,7 +8,6 @@ import torch
 class Fire(torch.nn.Module):
     def __init__(self, inplanes, squeeze_planes, expand1x1_planes, expand3x3_planes):
         super(Fire, self).__init__()
-        
         self.inplanes = inplanes
         self.squeeze = torch.nn.Conv2d(inplanes, squeeze_planes, kernel_size=1)
         self.squeeze_activation = torch.nn.ReLU(inplace=True)

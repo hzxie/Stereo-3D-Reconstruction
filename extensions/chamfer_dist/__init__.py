@@ -2,9 +2,7 @@
 #
 # Developed by Thibault GROUEIX <thibault.groueix.2012@polytechnique.org>
 
-import sys
 import torch
-import numpy as np
 
 import chamfer
 

@@ -2,8 +2,6 @@
 #
 # Developed by Haozhe Xie <cshzxie@gmail.com>
 
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import torch
 import torch.backends.cudnn
@@ -45,25 +43,24 @@ def train_net(cfg):
         utils.data_transforms.RandomBackground(cfg.TEST.RANDOM_BG_COLOR_RANGE),
         utils.data_transforms.CenterCrop(IMG_SIZE, CROP_SIZE),
         utils.data_transforms.Normalize(cfg.DATASET.IMG_MEAN, cfg.DATASET.IMG_STD),
-        utils.data_transforms.ToTensor(),
-        # utils.data_transforms.RandomSamplePoints(cfg.NETWORK.N_POINTS)
+        utils.data_transforms.ToTensor()
     ])
 
     # Set up data loader
     dataset_loader = utils.data_loaders.DATASET_LOADER_MAPPING[cfg.DATASET.DATASET_NAME](cfg)
-    train_data_loader = torch.utils.data.DataLoader(
-        dataset=dataset_loader.get_dataset(utils.data_loaders.DatasetType.TRAIN, cfg.CONST.N_VIEWS, train_transforms),
-        batch_size=cfg.CONST.BATCH_SIZE,
-        num_workers=cfg.TRAIN.NUM_WORKER,
-        pin_memory=True,
-        shuffle=True,
-        drop_last=True)
-    val_data_loader = torch.utils.data.DataLoader(
-        dataset=dataset_loader.get_dataset(utils.data_loaders.DatasetType.VAL, cfg.CONST.N_VIEWS, val_transforms),
-        batch_size=1,
-        num_workers=1,
-        pin_memory=True,
-        shuffle=False)
+    train_data_loader = torch.utils.data.DataLoader(dataset=dataset_loader.get_dataset(
+        utils.data_loaders.DatasetType.TRAIN, cfg.CONST.N_VIEWS, train_transforms),
+                                                    batch_size=cfg.CONST.BATCH_SIZE,
+                                                    num_workers=cfg.TRAIN.NUM_WORKER,
+                                                    pin_memory=True,
+                                                    shuffle=True,
+                                                    drop_last=True)
+    val_data_loader = torch.utils.data.DataLoader(dataset=dataset_loader.get_dataset(
+        utils.data_loaders.DatasetType.VAL, cfg.CONST.N_VIEWS, val_transforms),
+                                                  batch_size=1,
+                                                  num_workers=1,
+                                                  pin_memory=True,
+                                                  shuffle=False)
 
     # Set up networks
     dispnet = DispNet(cfg)
@@ -83,51 +80,47 @@ def train_net(cfg):
 
     # Set up solver
     if cfg.TRAIN.POLICY == 'adam':
-        dispnet_solver = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, dispnet.parameters()),
-            lr=cfg.TRAIN.DISPNET_LEARNING_RATE,
-            betas=cfg.TRAIN.BETAS)
-        encoder_solver = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, encoder.parameters()),
-            lr=cfg.TRAIN.ENCODER_LEARNING_RATE,
-            betas=cfg.TRAIN.BETAS)
-        decoder_solver = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, decoder.parameters()),
-            lr=cfg.TRAIN.DECODER_LEARNING_RATE,
-            betas=cfg.TRAIN.BETAS)
-        corrnet_solver = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, corrnet.parameters()),
-            lr=cfg.TRAIN.CORRNET_LEARNING_RATE,
-            betas=cfg.TRAIN.BETAS)
+        dispnet_solver = torch.optim.Adam(filter(lambda p: p.requires_grad, dispnet.parameters()),
+                                          lr=cfg.TRAIN.DISPNET_LEARNING_RATE,
+                                          betas=cfg.TRAIN.BETAS)
+        encoder_solver = torch.optim.Adam(filter(lambda p: p.requires_grad, encoder.parameters()),
+                                          lr=cfg.TRAIN.ENCODER_LEARNING_RATE,
+                                          betas=cfg.TRAIN.BETAS)
+        decoder_solver = torch.optim.Adam(filter(lambda p: p.requires_grad, decoder.parameters()),
+                                          lr=cfg.TRAIN.DECODER_LEARNING_RATE,
+                                          betas=cfg.TRAIN.BETAS)
+        corrnet_solver = torch.optim.Adam(filter(lambda p: p.requires_grad, corrnet.parameters()),
+                                          lr=cfg.TRAIN.CORRNET_LEARNING_RATE,
+                                          betas=cfg.TRAIN.BETAS)
     elif cfg.TRAIN.POLICY == 'sgd':
-        dispnet_solver = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, dispnet.parameters()),
-            lr=cfg.TRAIN.DISPNET_LEARNING_RATE,
-            momentum=cfg.TRAIN.MOMENTUM)
-        encoder_solver = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, encoder.parameters()),
-            lr=cfg.TRAIN.ENCODER_LEARNING_RATE,
-            momentum=cfg.TRAIN.MOMENTUM)
-        decoder_solver = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, decoder.parameters()),
-            lr=cfg.TRAIN.DECODER_LEARNING_RATE,
-            momentum=cfg.TRAIN.MOMENTUM)
-        corrnet_solver = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, corrnet.parameters()),
-            lr=cfg.TRAIN.CORRNET_LEARNING_RATE,
-            momentum=cfg.TRAIN.MOMENTUM)
+        dispnet_solver = torch.optim.SGD(filter(lambda p: p.requires_grad, dispnet.parameters()),
+                                         lr=cfg.TRAIN.DISPNET_LEARNING_RATE,
+                                         momentum=cfg.TRAIN.MOMENTUM)
+        encoder_solver = torch.optim.SGD(filter(lambda p: p.requires_grad, encoder.parameters()),
+                                         lr=cfg.TRAIN.ENCODER_LEARNING_RATE,
+                                         momentum=cfg.TRAIN.MOMENTUM)
+        decoder_solver = torch.optim.SGD(filter(lambda p: p.requires_grad, decoder.parameters()),
+                                         lr=cfg.TRAIN.DECODER_LEARNING_RATE,
+                                         momentum=cfg.TRAIN.MOMENTUM)
+        corrnet_solver = torch.optim.SGD(filter(lambda p: p.requires_grad, corrnet.parameters()),
+                                         lr=cfg.TRAIN.CORRNET_LEARNING_RATE,
+                                         momentum=cfg.TRAIN.MOMENTUM)
     else:
         raise Exception('[FATAL] %s Unknown optimizer %s.' % (dt.now(), cfg.TRAIN.POLICY))
 
     # Set up learning rate scheduler to decay learning rates dynamically
-    dispnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        dispnet_solver, milestones=cfg.TRAIN.DISPNET_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
-    encoder_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        encoder_solver, milestones=cfg.TRAIN.ENCODER_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
-    decoder_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        decoder_solver, milestones=cfg.TRAIN.DECODER_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
-    corrnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        corrnet_solver, milestones=cfg.TRAIN.CORRNET_LR_MILESTONES, gamma=cfg.TRAIN.GAMMA)
+    dispnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(dispnet_solver,
+                                                                milestones=cfg.TRAIN.DISPNET_LR_MILESTONES,
+                                                                gamma=cfg.TRAIN.GAMMA)
+    encoder_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(encoder_solver,
+                                                                milestones=cfg.TRAIN.ENCODER_LR_MILESTONES,
+                                                                gamma=cfg.TRAIN.GAMMA)
+    decoder_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(decoder_solver,
+                                                                milestones=cfg.TRAIN.DECODER_LR_MILESTONES,
+                                                                gamma=cfg.TRAIN.GAMMA)
+    corrnet_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(corrnet_solver,
+                                                                milestones=cfg.TRAIN.CORRNET_LR_MILESTONES,
+                                                                gamma=cfg.TRAIN.GAMMA)
 
     if torch.cuda.is_available():
         dispnet = torch.nn.DataParallel(dispnet).cuda()
@@ -159,8 +152,8 @@ def train_net(cfg):
         corrnet.load_state_dict(checkpoint['corrnet_state_dict'])
         corrnet_solver.load_state_dict(checkpoint['corrnet_solver_state_dict'])
 
-        print('[INFO] %s Recover complete. Current epoch #%d, Best Chamfer Distance = %.4f at epoch #%d.' \
-                 % (dt.now(), init_epoch, best_cd, best_epoch))
+        print('[INFO] %s Recover complete. Current epoch #%d, Best Chamfer Distance = %.4f at epoch #%d.' %
+              (dt.now(), init_epoch, best_cd, best_epoch))
 
     # Summary writer for TensorBoard
     output_dir = os.path.join(cfg.DIR.OUT_PATH, '%s', dt.now().isoformat())
@@ -245,9 +238,10 @@ def train_net(cfg):
             # Tick / tock
             batch_time.update(time() - batch_end_time)
             batch_end_time = time()
-            print('[INFO] %s [Epoch %d/%d][Batch %d/%d] BatchTime = %.3f (s) DataTime = %.3f (s) DLoss = %.4f PTLoss = %.4f' % \
-                (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, batch_idx + 1, n_batches, \
-                    batch_time.val, data_time.val, disparity_loss.item(), pt_cloud_loss.item()))
+            print(
+                '[INFO] %s [Epoch %d/%d][Batch %d/%d] BatchTime = %.3f (s) DataTime = %.3f (s) DLoss = %.4f PTLoss = %.4f'
+                % (dt.now(), epoch_idx + 1, cfg.TRAIN.NUM_EPOCHES, batch_idx + 1, n_batches, batch_time.val,
+                   data_time.val, disparity_loss.item(), pt_cloud_loss.item()))
 
         # Append epoch loss to TensorBoard
         train_writer.add_scalar('DispNet/EpochLoss', disparity_losses.avg, epoch_idx + 1)
@@ -260,27 +254,26 @@ def train_net(cfg):
                pt_cloud_losses.avg))
 
         # Validate the training models
-        cd = test_net(cfg, epoch_idx + 1, output_dir, val_data_loader, val_writer, dispnet, encoder, decoder, corrnet)
+        cd = test_net(cfg, epoch_idx + 1, val_data_loader, val_writer, dispnet, encoder, decoder, corrnet)
 
         # Save weights to file
         if (epoch_idx + 1) % cfg.TRAIN.SAVE_FREQ == 0:
             if not os.path.exists(ckpt_dir):
                 os.makedirs(ckpt_dir)
 
-            utils.network_utils.save_checkpoints(cfg, \
-                    os.path.join(ckpt_dir, 'ckpt-epoch-%04d.pth.tar' % (epoch_idx + 1)), \
-                    epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver, \
-                    decoder, decoder_solver, corrnet, corrnet_solver, best_cd, best_epoch)
+            utils.network_utils.save_checkpoints(cfg,
+                                                 os.path.join(ckpt_dir, 'ckpt-epoch-%04d.pth.tar' % (epoch_idx + 1)),
+                                                 epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver,
+                                                 decoder, decoder_solver, corrnet, corrnet_solver, best_cd, best_epoch)
         if cd < best_cd:
             if not os.path.exists(ckpt_dir):
                 os.makedirs(ckpt_dir)
 
             best_cd = cd
             best_epoch = epoch_idx + 1
-            utils.network_utils.save_checkpoints(cfg, \
-                    os.path.join(ckpt_dir, 'best-ckpt.pth.tar'), \
-                    epoch_idx + 1, dispnet, dispnet_solver, encoder, encoder_solver, \
-                    decoder, decoder_solver, corrnet, corrnet_solver, best_cd, best_epoch)
+            utils.network_utils.save_checkpoints(cfg, os.path.join(ckpt_dir, 'best-ckpt.pth.tar'), epoch_idx + 1,
+                                                 dispnet, dispnet_solver, encoder, encoder_solver, decoder,
+                                                 decoder_solver, corrnet, corrnet_solver, best_cd, best_epoch)
 
     # Close SummaryWriter for TensorBoard
     train_writer.close()
