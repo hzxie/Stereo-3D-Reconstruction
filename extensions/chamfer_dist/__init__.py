@@ -30,6 +30,5 @@ class ChamferDistance(torch.nn.Module):
         super(ChamferDistance, self).__init__()
 
     def forward(self, xyz1, xyz2):
-        batch_size = xyz1.size(0)
         dist1, dist2 = ChamferFunction.apply(xyz1, xyz2)
         return torch.mean(dist1) + torch.mean(dist2)
