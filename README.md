@@ -4,7 +4,7 @@ This repository contains the source code for the paper [Toward 3D Object Reconst
 
 **Important Note:** The source code is in the ([Stereo2Voxel](https://github.com/hzxie/Stereo-3D-Reconstruction/tree/Stereo2Voxel)/[Stereo2Point](https://github.com/hzxie/Stereo-3D-Reconstruction/tree/Stereo2Point)) branches of the repository.
 
-![Overview](https://www.infinitescript.com/projects/Stereo-3D-Reconstruction/Stereo-3D-Reconstruction-Overview.jpg)
+![Overview](https://www.infinitescript.com/projects/Stereo-3D-Reconstruction/Stereo-3D-Reconstruction-Overview.webp)
 
 ## Cite this work
 
